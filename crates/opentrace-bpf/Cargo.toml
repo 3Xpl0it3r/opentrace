@@ -1,0 +1,24 @@
+[package]
+name = "opentrace-bpf"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "opentrace_bpf"  
+path = "src/lib.rs"          
+crate-type = ["lib"]        
+
+
+[build-dependencies]
+libbpf-cargo = "0.26.2"
+vmlinux = { git = "https://github.com/libbpf/vmlinux.h.git", rev = "83a228cf37fc65f2d14e4896a04922b5ee531a94" }
+
+[dependencies]
+libbpf-rs = {workspace = true}
+libc = { workspace = true } 
+clap = {workspace = true}
+thiserror = { workspace = true } 
+serde = {workspace=true}
+serde_json = {workspace = true}
+tokio = {workspace=true}
+tokio-util = {workspace=true}

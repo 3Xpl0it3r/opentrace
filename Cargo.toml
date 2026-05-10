@@ -1,0 +1,40 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/opentrace-cli",
+    "crates/opentrace-bpf", 
+    "crates/opentrace-server", 
+    "crates/opentrace-mcp"
+]
+default-members = ["crates/opentrace-server"]
+
+[workspace.package]
+publish = false
+edition = "2024"
+version = "0.0.1"
+rust-version = "1.95.0"
+authors = ["3Xpl0it3r"]
+license = "Apache-2.0"
+repository = "https://github.com/3Xpl0it3r/opentrace"
+
+[workspace.dependencies]
+#
+# Workspace member crates
+#
+opentrace-bpf = { path = "crates/opentrace-bpf"}
+opentrace-mcp = { path = "crates/opentrace-mcp"}
+
+#
+# Third party crates
+#
+thiserror = "2.0.18"
+libc = "0.2.171"
+clap = { version = "4.5.38", features = ["derive"] }
+rmcp = { version = "0.16.0", features = ["server", "transport-streamable-http-server", "transport-streamable-http-server-session"] }
+serde = {version = "1.0.228", features = ["derive"]}
+serde_json = "1.0.149"
+tokio ={version= "1.52.2", features = ["rt-multi-thread"]}
+
+tokio-util = "0.7.10"
+libbpf-rs = "0.26.2"
+axum = "0.8.9"

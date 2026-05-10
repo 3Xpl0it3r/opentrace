@@ -1,0 +1,18 @@
+[package]
+name = "opentrace-mcp"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "opentrace_mcp"  
+path = "src/lib.rs"          
+crate-type = ["lib"]        
+
+
+[dependencies]
+opentrace-bpf = {path = "../opentrace-bpf"}
+thiserror = { workspace = true } 
+serde = {workspace = true}
+rmcp = {workspace = true}
+tokio = {workspace = true}
+tokio-util = {workspace = true}

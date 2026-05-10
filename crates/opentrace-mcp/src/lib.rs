@@ -1,0 +1,8 @@
+// Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
+
+mod exporter;
+pub mod errors;
+mod server;
+mod tools;
+
+pub use server::OpentraceMcpServer;
