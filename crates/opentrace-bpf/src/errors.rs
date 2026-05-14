@@ -18,6 +18,9 @@ pub enum EbpfError {
     #[error("probes is not found Error: {0}")]
     ProbeNotFound(String),
 
+    #[error("Syscall Error: {0}")]
+    SyscallErr(String),
+
     #[error("Other Error: {0}")]
     Other(String),
 }
@@ -30,6 +33,7 @@ impl From<EbpfError> for String {
             EbpfError::Other(err) => err,
             EbpfError::ParseErr(err) => err.to_string(),
             EbpfError::ProbeNotFound(err) => err,
+            EbpfError::SyscallErr(err) => err,
         }
     }
 }

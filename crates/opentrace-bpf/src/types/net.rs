@@ -5,7 +5,7 @@ use std::fmt;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 
-use crate::consts::{eth_proto, ip_proto};
+use crate::protocols::{eth_proto, ip_proto};
 
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -60,14 +60,6 @@ pub struct PktInfo {
     pub _pad2: [u8; 3],
 }
 
-// ProcessInfo[#TODO] (shoule add some comments )
-#[derive(Clone, Copy, Serialize, Deserialize)]
-#[repr(C)]
-pub struct ProcessInfo {
-    pub tgid_pid: u64,
-    pub commond: [u8; 16],
-}
-
 impl From<Addr> for AddrV4 {
     fn from(addr: Addr) -> Self {
         AddrV4(unsafe { addr.v4addr })
@@ -104,6 +96,7 @@ impl fmt::Display for AddrV4 {
     }
 }
 
+
 impl fmt::Display for AddrV6 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -120,6 +113,7 @@ impl fmt::Display for AddrV6 {
         )
     }
 }
+
 
 impl Serialize for AddrV4 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

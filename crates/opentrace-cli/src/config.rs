@@ -2,8 +2,8 @@
 
 use std::fmt::{self, Display, Formatter};
 
-use opentrace_bpf::consts::{eth_proto, ip_proto};
-use opentrace_bpf::prog::net::SkbdropConfig;
+use opentrace_bpf::collector::net::SkbdropConfig;
+use opentrace_bpf::protocols::{eth_proto, ip_proto};
 
 use crate::errors::CliError;
 
@@ -153,17 +153,17 @@ fn parse_filter_to_config(expr: String) -> Result<FilterConfig, CliError> {
                 continue;
             }
             "tcp" => {
-                config.ip_proto = ip_proto::IPPROTO_TCP;
+                config.ip_proto = ip_proto::TCP;
                 has_tcp_udp = true;
                 i += 1;
             }
             "udp" => {
-                config.ip_proto = ip_proto::IPPROTO_UDP;
+                config.ip_proto = ip_proto::UDP;
                 has_tcp_udp = true;
                 i += 1;
             }
             "icmp" => {
-                config.ip_proto = ip_proto::IPPROTO_ICMP;
+                config.ip_proto = ip_proto::ICMP;
                 has_icmp = true;
                 i += 1;
             }

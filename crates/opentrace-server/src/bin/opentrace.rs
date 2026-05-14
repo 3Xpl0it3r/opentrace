@@ -6,20 +6,9 @@ use opentrace_bpf::ProbeRegistry;
 use opentrace_mcp::OpentraceMcpServer;
 use opentrace_server::{options::ServerOptions, server::GenericServer};
 
-fn setup_memlock_limit() {
-    let rlim = libc::rlimit {
-        rlim_cur: libc::RLIM_INFINITY,
-        rlim_max: libc::RLIM_INFINITY,
-    };
-    let ret = unsafe { libc::setrlimit(libc::RLIMIT_MEMLOCK, &rlim) };
-    if ret != 0 {
-        eprintln!("Warning: Failed to remove memory lock limit (ret={})", ret);
-    }
-}
-
 #[tokio::main]
 async fn main() {
-    setup_memlock_limit();
+    opentrace_bpf::env::setup_memlock_limit();
 
     let opts = ServerOptions::parse();
 

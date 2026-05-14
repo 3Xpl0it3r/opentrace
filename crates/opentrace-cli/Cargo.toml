@@ -9,7 +9,7 @@ path = "src/bin/opentrace.rs"
 
 [dependencies]
 opentrace-bpf = {workspace = true}
-libc = { workspace = true } 
+# libc = { workspace = true } 
 clap = {workspace = true}
 thiserror = { workspace = true } 
 serde = {workspace=true}

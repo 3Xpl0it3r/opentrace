@@ -10,12 +10,12 @@ const AVAILABLE_FILTER_FUNCTIONS: &str = "/sys/kernel/debug/tracing/available_fi
 const AVAILABLE_EVENTS: &str = "/sys/kernel/debug/tracing/available_events";
 
 #[derive(Clone)]
-pub struct ProbeRegistry {
+pub struct Registry {
     kprobes: HashMap<String, bool>,
     tracepoints: HashMap<String, bool>,
 }
 
-impl ProbeRegistry {
+impl Registry {
     pub fn try_init() -> Result<Self, EbpfError> {
         Ok(Self {
             kprobes: read_kprobes()?,

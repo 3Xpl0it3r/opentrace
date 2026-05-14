@@ -1,7 +1,7 @@
-pub mod perf {
+pub mod perf_profile {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/src/bpf/perf.skel.rs"
+        "/src/bpf/perf_profile.skel.rs"
     ));
 }
 

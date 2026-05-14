@@ -7,11 +7,11 @@ use rmcp::{ErrorData, schemars};
 use serde::Deserialize;
 use tokio::time::Duration;
 
-use opentrace_bpf::EbpfProgram;
 use opentrace_bpf::ProbeRegistry;
-use opentrace_bpf::prog::net::{SkbdropConfig, SkbdropEvent, SkbdropProgram};
-use opentrace_bpf::skel::{OpenSkel, SkbdropSkelBuilder, SkelBuilder};
-use opentrace_bpf::utils::net as net_utils;
+use opentrace_bpf::collector::Collector;
+use opentrace_bpf::collector::net::{SkbdropCollector, SkbdropConfig, SkbdropEvent};
+use opentrace_bpf::format::JsonFormatter;
+use opentrace_bpf::protocols::{eth_proto, ip_proto};
 
 use crate::errors::MCPError;
 use crate::exporter::{McpExporter, receive_event_sync};
@@ -67,14 +67,14 @@ impl SkbdropMcpToolParams {
         config.src_port = self.src_port.unwrap_or_default();
 
         if let Some(ref proto) = self.ip_proto {
-            config.ip_proto = opentrace_bpf::consts::ip_proto::parse(proto)?;
+            config.ip_proto = ip_proto::parse(proto)?;
         } else {
-            config.ip_proto = opentrace_bpf::consts::ip_proto::IPPROTO_TCP;
+            config.ip_proto = ip_proto::TCP;
         }
         if let Some(ref proto) = self.eth_proto {
-            config.eth_proto = opentrace_bpf::consts::eth_proto::parse(proto)?;
+            config.eth_proto = eth_proto::parse(proto)?;
         } else {
-            config.eth_proto = opentrace_bpf::consts::eth_proto::ETH_P_IP;
+            config.eth_proto = eth_proto::ETH_P_IP;
         }
 
         Ok(config)
@@ -85,23 +85,22 @@ pub(crate) fn tool_handler(
     params: SkbdropMcpToolParams,
     probe_registry: &ProbeRegistry,
 ) -> Result<CallToolResult, ErrorData> {
-    let skel_builder = SkbdropSkelBuilder::default();
+    let mut open_project = opentrace_bpf::open_object_storage();
+    let (exporter, rx) = McpExporter::new(
+        10,
+        JsonFormatter::default(),
+        opentrace_bpf::symbol::new_kernel_symbol(),
+    );
 
-    let mut open_project = MaybeUninit::uninit();
-    let open_skel = skel_builder.open(&mut open_project).unwrap();
-    // Load and verify BPF programs into kernel
-    let skel = open_skel.load().unwrap();
-    let (exporter, rx) = McpExporter::<SkbdropEvent>::with_capacity(10);
-
-    let mut program = SkbdropProgram::new(
-        skel,
+    let mut collector = SkbdropCollector::new(
+        &mut open_project,
         probe_registry,
         params.to_config().map_err(MCPError::from)?,
         exporter,
     )
     .unwrap();
-    program.attach_probe().unwrap();
+    collector.attach_probe().unwrap();
 
     //  等待10分钟，如果10分钟内抓不到包就退出
-    receive_event_sync(program, rx, Duration::from_mins(10)).map_err(|e| e.into())
+    receive_event_sync(collector, rx, Duration::from_mins(10), JsonFormatter).map_err(|e| e.into())
 }

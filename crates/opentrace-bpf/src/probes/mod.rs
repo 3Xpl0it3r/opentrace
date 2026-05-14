@@ -1,4 +1,4 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
+mod registry;
 
-pub mod skbdrop;
-pub mod types;
+pub use registry::Registry;
