@@ -6,8 +6,8 @@ use std::{mem, slice};
 
 use libbpf_rs::skel::{OpenSkel, SkelBuilder};
 use libbpf_rs::{
-    self, libbpf_sys, Link, MapCore, MapFlags, OpenObject, PerfBuffer, PerfBufferBuilder,
-    PrintLevel,
+    self, Link, MapCore, MapFlags, OpenObject, PerfBuffer, PerfBufferBuilder, PrintLevel,
+    libbpf_sys,
 };
 use libc::setgid;
 use serde::{Deserialize, Serialize};
@@ -15,10 +15,10 @@ use serde::{Deserialize, Serialize};
 use crate::bpf::perf_profile::{self, PerfProfileSkel, PerfProfileSkelBuilder};
 use crate::collectors::Collector as CollectorTrait;
 use crate::probes::Registry as ProbeRegistry;
-use crate::symbols::{new_kernel_symbol, SymbolTable};
+use crate::symbols::{SymbolTable, new_kernel_symbol};
 use crate::types::process::ProcessInfo;
 use crate::utils::syscall::{self as syscall_utils, PerfEventFdBuilder};
-use crate::{utils, EbpfError, Exporter};
+use crate::{EbpfError, Exporter, utils};
 
 use super::treestack::{StackTree, StackTreeNode};
 
@@ -90,9 +90,7 @@ impl<'a> Collector<'a> {
         let skel = PerfProfileSkelBuilder::default().open(object)?.load()?;
         let perf_buffer = PerfBufferBuilder::new(&skel.maps.perf_events)
             .sample_cb(move |_cpu: i32, data: &[u8]| {
-                let event = exporter.load(data);
-
-                exporter.handle(event);
+                crate::exporter::load_and_dispatch(data, &mut exporter);
             })
             .build()?;
 
@@ -159,7 +157,7 @@ impl Default for DefaultConsoleExporter {
 }
 
 impl Exporter<Event> for DefaultConsoleExporter {
-    fn handle(&mut self, event: Event) {
+    fn dispatch(&mut self, event: Event) {
         self.kstack_tree.insert(&event.kstack);
         self.ustack_tree.insert(&event.ustack);
     }

@@ -55,7 +55,7 @@ impl<T: Send + Sized + Serialize + Clone, F: Formatter<T>, R: SymbolResolver>
 impl<T: Send + Sized + Serialize + Clone, F: Formatter<T>, R: SymbolResolver> Exporter<T>
     for ChannelExporter<T, F, R>
 {
-    fn handle(&mut self, event: T) {
+    fn dispatch(&mut self, event: T) {
         let mut buffer = Vec::new();
         if self
             .formatter

@@ -153,8 +153,7 @@ impl<'a> Collector<'a> {
 
         let perf_buffer = PerfBufferBuilder::new(&skel.maps.perf_events)
             .sample_cb(move |_cpu: i32, data: &[u8]| {
-                let event = exporter.load(data);
-                exporter.handle(event);
+                crate::exporter::load_and_dispatch(data, &mut exporter);
             })
             .build()?;
 
@@ -282,7 +281,7 @@ impl<F> Exporter<Event> for DefaultConsoleExporter<F>
 where
     F: Formatter<Event>,
 {
-    fn handle(&mut self, event: Event) {
+    fn dispatch(&mut self, event: Event) {
         let mut stdout = std::io::stdout().lock();
         if let Err(err) = self.formatter.format(&mut stdout, &event, &self.resolver) {
             eprintln!("failed to format skbdrop event: {err}");

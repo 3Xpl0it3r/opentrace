@@ -8,11 +8,15 @@ use serde::Serialize;
 pub trait Exporter<E: Send + Sized + Serialize + Clone> {
     // 可以用来处理event（序列化，转String, Folded格式化等等.....)
     // 也可以直接打印到终端，或者通过 channel发送出去
-    fn handle(&mut self, event: E);
+    fn dispatch(&mut self, event: E);
+}
 
-    // 不用自己覆盖, 直接无脑转换就行了（event和内核里面event内存布局是严格一一对应的,
-    // 所以可以直接放心转换的_
-    fn load(&self, data: &[u8]) -> E {
-        unsafe { std::ptr::read(data.as_ptr() as *const E) }
+pub(crate) fn load_and_dispatch<T: Send + Sized + Serialize + Clone, E: Exporter<T>>(
+    data: &[u8],
+    exporter: &mut E,
+) {
+    if data.len() < std::mem::size_of::<T>() {
+        return;
     }
+    exporter.dispatch(unsafe { std::ptr::read(data.as_ptr() as *const T) });
 }

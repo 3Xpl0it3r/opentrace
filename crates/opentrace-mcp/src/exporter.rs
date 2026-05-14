@@ -40,7 +40,7 @@ impl<T: Sized + Send + Serialize + Clone, F: Formatter<T>, R: SymbolResolver> Mc
 impl<T: Serialize + Sized + Send + Clone, F: Formatter<T>, R: SymbolResolver> Exporter<T>
     for McpExporter<T, F, R>
 {
-    fn handle(&mut self, event: T) {
+    fn dispatch(&mut self, event: T) {
         let mut buffer = Vec::new();
         if self
             .formatter
