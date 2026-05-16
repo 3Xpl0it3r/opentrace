@@ -1,3 +1,9 @@
+## 运行展示
+
+![llvm-call-example](images/llvm-call-example.png)
+
+![cli-call-example](images/cli-call-example.png)
+
 ## 安装说明
 
 1. 准备 Linux 运行环境。
@@ -111,4 +117,4 @@
    eth_proto    以太网协议，例如 ipv4、ipv6，或协议号 0x0800、0x86DD
    ```
 
-   调用后服务端会等待 skb drop 事件，返回匹配到的丢包事件信息；如果超时未捕获到事件，则返回空结果。
+    调用后服务端会等待 skb drop 事件，返回匹配到的丢包事件信息；如果超时未捕获到事件，则返回空结果。

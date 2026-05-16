@@ -2,5 +2,6 @@
 mod profile;
 
 pub use profile::{
-    ProfileCollector, ProfileConfig, ProfileConsoleExporter, ProfileEvent, ProfileFoldedFormatter,
+    Collector as ProfileCollector, Config as ProfileConfig,
+    DefaultExporter as ProfileSimpleExporter, Event as ProfileEvent,
 };

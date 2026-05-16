@@ -1,3 +1,3 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
-pub mod profile;
+pub mod perf;
 pub mod trace;

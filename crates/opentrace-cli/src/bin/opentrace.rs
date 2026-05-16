@@ -20,7 +20,7 @@ async fn main() -> Result<(), CliError> {
             opentrace_cli::commands::trace::run(subcommand, &mut probe_registry, &mut object).await
         }
         options::Command::Perf(subcommand) => {
-            opentrace_cli::commands::profile::run(subcommand, &mut probe_registry, &mut object)
+            opentrace_cli::commands::perf::run(subcommand, &mut probe_registry, &mut object)
                 .await
         }
     }

@@ -1,14 +1,8 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
 use std::collections::HashMap;
-use std::ffi::CStr;
-use std::fs::{self, File};
-use std::io::{BufRead, BufReader};
+use std::fs;
 use std::path::Path;
-use std::sync::LazyLock;
-
-use serde::ser::SerializeSeq;
-use serde::Serialize;
 
 use crate::EbpfError;
 

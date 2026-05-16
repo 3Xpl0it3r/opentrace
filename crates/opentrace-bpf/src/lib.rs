@@ -6,7 +6,7 @@ mod exporter;
 mod collectors;
 mod skeleton;
 mod probes;
-mod symbols;
+mod symbolizers;
 mod formatter;
 
 pub mod env;
@@ -21,12 +21,13 @@ pub use probes::Registry as ProbeRegistry;
 pub use skeleton::{CollectorObject, open_object_storage};
 
 pub mod symbol {
-    pub use crate::symbols::new_kernel_symbol;
-    pub use crate::symbols::{ResolvedSymbol, StackFrame, Symbol, SymbolResolver, SymbolTable};
+    pub use crate::symbolizers::SymbolizerRegistry;
+    pub use crate::symbolizers::{ResolvedSymbol, Symbolizer};
+    pub use crate::symbolizers::{Source, SymbolizeInput};
 }
 
 pub mod format {
-    pub use crate::formatter::{Formatter, JsonFormatter};
+    pub use crate::formatter::{StreamFormatter, StructeredFormatter};
 }
 //
 pub mod collector {
@@ -39,7 +40,7 @@ pub mod collector {
     }
     pub mod cpu {
         pub use crate::collectors::{
-            ProfileCollector, ProfileConfig, ProfileConsoleExporter, ProfileEvent,ProfileFoldedFormatter,
+            ProfileCollector, ProfileConfig, ProfileEvent, ProfileSimpleExporter,
         };
     }
 }

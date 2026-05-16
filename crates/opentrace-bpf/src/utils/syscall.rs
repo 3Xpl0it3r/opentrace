@@ -5,9 +5,7 @@ use std::mem;
 use std::os::fd::{FromRawFd as _, OwnedFd, RawFd};
 
 use libbpf_rs::libbpf_sys::perf_event_attr;
-use libbpf_rs::PerfBuffer;
-use libc::{self, syscall};
-use tokio_util::bytes::Buf;
+use libc::syscall;
 
 use crate::EbpfError;
 
@@ -101,7 +99,7 @@ impl Default for PerfEventFdBuilder {
         Self {
             attrs: attrs,
             cpu: 0,
-            pid: -1,
+            pid: 0,
             group_id: -1,
         }
     }

@@ -6,7 +6,6 @@ use super::{Symbol, SymbolTable};
 
 const KALLSYMS_PATH: &str = "/proc/kallsyms";
 
-
 pub fn load_symbols() -> SymbolTable {
     load_symbols_from(KALLSYMS_PATH)
 }
@@ -35,7 +34,15 @@ fn load_symbols_from(path: &str) -> SymbolTable {
 fn parse_kallsyms_line(line: &str) -> Option<Symbol> {
     let mut parts = line.split_whitespace();
     let addr = u64::from_str_radix(parts.next()?, 16).ok()?;
-    let _symbol_type = parts.next()?;
+    if addr == 0 {
+        return None;
+    }
+
+    let symbol_type = parts.next()?.as_bytes().first()?.to_ascii_lowercase();
+    if !matches!(symbol_type, b't' | b'w') {
+        return None;
+    }
+
     let name = parts.next()?;
 
     Some(Symbol::new(addr, name.to_owned()))

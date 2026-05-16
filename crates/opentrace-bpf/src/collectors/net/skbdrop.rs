@@ -12,9 +12,9 @@ use crate::Exporter;
 use crate::bpf::skbdrop::{SkbdropSkel, SkbdropSkelBuilder};
 use crate::collectors::Collector as CollectorTrait;
 use crate::errors::EbpfError;
-use crate::format::Formatter;
+use crate::format::StreamFormatter;
 use crate::probes::Registry as ProbeRegistry;
-use crate::symbols::{self, StackFrame, SymbolResolver, SymbolTable, new_kernel_symbol};
+use crate::symbolizers::*;
 use crate::utils::net as net_utils;
 
 use crate::types::net::{AddrV4, AddrV6, L2Info, L3Info, L4Info, PktInfo};
@@ -31,7 +31,7 @@ pub struct Event {
     pub pkt_info: PktInfo,
     pub stack_size: i64,
     pub stack: [u64; 16],
-    pub drop_reason: u8,
+    drop_reason: u8,
 }
 
 impl Serialize for Event {
@@ -188,18 +188,16 @@ impl CollectorTrait for Collector<'_> {
     }
 }
 
-#[derive(Default)]
-pub struct DefaultFormatter;
+pub struct DefaultFormatter<'a, S> {
+    symbolizer: &'a S,
+    source: Source<'a>,
+}
 
-impl Formatter<Event> for DefaultFormatter {
-    fn format<W: std::io::Write, R: SymbolResolver>(
-        &self,
-        w: &mut W,
-        event: &Event,
-        resolver: &R,
-    ) -> Result<(), std::io::Error> {
+impl<'a, S: Symbolizer> StreamFormatter<Event> for DefaultFormatter<'a, S> {
+    fn format<W: std::io::Write>(&self, w: &mut W, event: &Event) -> Result<(), std::io::Error> {
         use std::io::Write as _;
 
+        let source = Source::Kernel;
         let sport = u16::from_be(event.l4_info.sport);
         let dport = u16::from_be(event.l4_info.dport);
 
@@ -235,14 +233,13 @@ impl Formatter<Event> for DefaultFormatter {
         }
 
         if event.stack_size > 0 {
-            let count = (event.stack_size as usize) / mem::size_of::<u64>();
-            for addr in event.stack[..count.min(event.stack.len())].iter() {
-                let frame = StackFrame(*addr);
-                if let Some(symbol) = frame.resolve_with(resolver) {
-                    writeln!(w, "        {}({})", symbol.name, symbol.offset)?;
-                } else {
-                    writeln!(w, "{}", addr)?;
-                }
+            let stk_cnt = (event.stack_size as usize) / mem::size_of::<u64>();
+            for addr in event.stack[..stk_cnt.min(event.stack.len())].iter() {
+                let symb = self.symbolizer.resolve(SymbolizeInput {
+                    source: self.source.clone(),
+                    addr: *addr,
+                });
+                writeln!(w, "        {}({})", symb.name, symb.offset)?;
             }
         }
 
@@ -251,54 +248,29 @@ impl Formatter<Event> for DefaultFormatter {
 }
 
 // 用于debug ，默认实现
-pub struct DefaultConsoleExporter<F = DefaultFormatter>
-where
-    F: Formatter<Event>,
-{
-    resolver: SymbolTable,
-    formatter: F,
+pub struct DefaultConsoleExporter<'a, S: Symbolizer> {
+    formatter: DefaultFormatter<'a, S>,
 }
 
-impl<F> DefaultConsoleExporter<F>
-where
-    F: Formatter<Event>,
-{
-    pub fn new(formatter: F) -> Self {
+impl<'a, S: Symbolizer> DefaultConsoleExporter<'a, S> {
+    pub fn new(symbolizer: &'a S) -> Self {
         Self {
-            resolver: new_kernel_symbol(),
-            formatter,
+            formatter: DefaultFormatter {
+                symbolizer,
+                source: Source::Kernel,
+            },
         }
     }
 }
 
-impl Default for DefaultConsoleExporter<DefaultFormatter> {
-    fn default() -> Self {
-        Self::new(DefaultFormatter)
-    }
-}
-
-impl<F> Exporter<Event> for DefaultConsoleExporter<F>
+impl<S> Exporter<Event> for DefaultConsoleExporter<'_, S>
 where
-    F: Formatter<Event>,
+    S: Symbolizer,
 {
     fn dispatch(&mut self, event: Event) {
         let mut stdout = std::io::stdout().lock();
-        if let Err(err) = self.formatter.format(&mut stdout, &event, &self.resolver) {
+        if let Err(err) = self.formatter.format(&mut stdout, &event) {
             eprintln!("failed to format skbdrop event: {err}");
         }
-    }
-}
-
-fn l3_addr_strings(l3_info: &L3Info) -> (String, String) {
-    match l3_info.ip_version {
-        4 => (
-            AddrV4::from(l3_info.saddr).to_string(),
-            AddrV4::from(l3_info.daddr).to_string(),
-        ),
-        6 => (
-            AddrV6::from(l3_info.saddr).to_string(),
-            AddrV6::from(l3_info.daddr).to_string(),
-        ),
-        _ => ("0.0.0.0".to_owned(), "0.0.0.0".to_owned()),
     }
 }

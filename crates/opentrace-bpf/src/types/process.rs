@@ -21,7 +21,7 @@ impl Serialize for ProcessInfo {
     {
         let mut state = serializer.serialize_struct("process_info", 3)?;
         state.serialize_field("pid", &self.pid)?;
-        state.serialize_field("tgid", &self.tgid);
+        state.serialize_field("tgid", &self.tgid)?;
         state.serialize_field("comm", &utils::cstring::from_bytes_lossy(&self.comm))?;
         state.end()
     }

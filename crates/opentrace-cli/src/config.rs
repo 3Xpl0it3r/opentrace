@@ -131,6 +131,9 @@ impl Display for FilterConfig {
     }
 }
 
+
+// filter语法树解析AI辅助写的
+
 fn parse_filter_to_config(expr: String) -> Result<FilterConfig, CliError> {
     let mut config = FilterConfig::default();
 

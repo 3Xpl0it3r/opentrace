@@ -1,3 +1,4 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
 pub(crate) mod skbdrop;
+pub(crate) mod perf;

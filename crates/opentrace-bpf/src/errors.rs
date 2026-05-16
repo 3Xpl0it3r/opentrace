@@ -21,6 +21,9 @@ pub enum EbpfError {
     #[error("Syscall Error: {0}")]
     SyscallErr(String),
 
+    #[error("Symbolize Error: {0}")]
+    SymbolizeError(String),
+
     #[error("Other Error: {0}")]
     Other(String),
 }
@@ -34,6 +37,7 @@ impl From<EbpfError> for String {
             EbpfError::ParseErr(err) => err.to_string(),
             EbpfError::ProbeNotFound(err) => err,
             EbpfError::SyscallErr(err) => err,
+            EbpfError::SymbolizeError(err) => err,
         }
     }
 }

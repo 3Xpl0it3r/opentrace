@@ -1,20 +1,24 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
-use std::mem::MaybeUninit;
+use std::io::{self, Write};
+use std::marker::PhantomData;
+use std::mem;
 
-use rmcp::model::CallToolResult;
+use rmcp::model::{CallToolResult, Content};
 use rmcp::{ErrorData, schemars};
-use serde::Deserialize;
+use serde::ser::Error as _;
+use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::time::Duration;
 
-use opentrace_bpf::ProbeRegistry;
 use opentrace_bpf::collector::Collector;
 use opentrace_bpf::collector::net::{SkbdropCollector, SkbdropConfig, SkbdropEvent};
-use opentrace_bpf::format::JsonFormatter;
+use opentrace_bpf::format::StreamFormatter;
 use opentrace_bpf::protocols::{eth_proto, ip_proto};
+use opentrace_bpf::symbol::{Source, SymbolizeInput, Symbolizer, SymbolizerRegistry};
+use opentrace_bpf::{Exporter, ProbeRegistry};
 
 use crate::errors::MCPError;
-use crate::exporter::{McpExporter, receive_event_sync};
 
 // Parameters accepted by the skbdrop MCP tool.
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -86,21 +90,161 @@ pub(crate) fn tool_handler(
     probe_registry: &ProbeRegistry,
 ) -> Result<CallToolResult, ErrorData> {
     let mut open_project = opentrace_bpf::open_object_storage();
+    let symbolizer = SymbolizerRegistry::default();
     let (exporter, rx) = McpExporter::new(
         10,
-        JsonFormatter::default(),
-        opentrace_bpf::symbol::new_kernel_symbol(),
+        JsonFormatter {
+            symbolizer,
+            source: Source::Kernel,
+        },
     );
 
     let mut collector = SkbdropCollector::new(
         &mut open_project,
         probe_registry,
-        params.to_config().map_err(MCPError::from)?,
+        params.to_config()?,
         exporter,
     )
-    .unwrap();
-    collector.attach_probe().unwrap();
+    .map_err(MCPError::from)?;
+    collector.attach_probe().map_err(MCPError::from)?;
 
     //  等待10分钟，如果10分钟内抓不到包就退出
-    receive_event_sync(collector, rx, Duration::from_mins(10), JsonFormatter).map_err(|e| e.into())
+    receive_event_sync(collector, rx, Duration::from_secs(10 * 60)).map_err(|e| e.into())
+}
+
+pub(crate) fn receive_event_sync(
+    mut collector: impl Collector,
+    mut rx: Receiver<String>,
+    timeout: Duration,
+) -> Result<CallToolResult, MCPError> {
+    tokio::task::block_in_place(|| {
+        let deadline = std::time::Instant::now() + timeout;
+        loop {
+            if std::time::Instant::now() > deadline {
+                return Ok(CallToolResult::success(vec![]));
+            }
+            match rx.try_recv() {
+                Ok(event) => {
+                    return Ok(CallToolResult::success(vec![Content::text(event)]));
+                }
+                Err(_) => {}
+            }
+            let _ = collector.poll(Duration::from_millis(100));
+        }
+    })
+}
+
+pub struct McpExporter<T, F> {
+    event_tx: Sender<String>,
+    formatter: F,
+    _marked: PhantomData<T>,
+}
+
+impl<T: Sized + Send + Clone, F: StreamFormatter<T>> McpExporter<T, F> {
+    pub(crate) fn new(capacity: usize, formatter: F) -> (Self, Receiver<String>) {
+        let (event_tx, event_rs) = channel::<String>(capacity);
+        (
+            Self {
+                formatter,
+                event_tx,
+                _marked: PhantomData,
+            },
+            event_rs,
+        )
+    }
+}
+
+impl<T: Sized + Send + Clone, F: StreamFormatter<T>> Exporter<T> for McpExporter<T, F> {
+    fn dispatch(&mut self, event: T) {
+        let mut buffer = Vec::new();
+        if self.formatter.format(&mut buffer, &event).is_err() {
+            return;
+        }
+        let Ok(event) = String::from_utf8(buffer) else {
+            return;
+        };
+        let _ = self.event_tx.try_send(event);
+    }
+}
+
+pub struct JsonFormatter<'a, S> {
+    symbolizer: S,
+    source: Source<'a>,
+}
+
+impl<S: Symbolizer> StreamFormatter<SkbdropEvent> for JsonFormatter<'_, S> {
+    fn format<W: Write>(&self, w: &mut W, event: &SkbdropEvent) -> io::Result<()> {
+        serde_json::to_writer(
+            w,
+            &SymbolizedSkbdropEvent {
+                event,
+                symbolizer: &self.symbolizer,
+                source: self.source.clone(),
+            },
+        )
+        .map_err(io::Error::other)
+    }
+}
+
+struct SymbolizedSkbdropEvent<'a, S> {
+    event: &'a SkbdropEvent,
+    symbolizer: &'a S,
+    source: Source<'a>,
+}
+
+#[derive(Serialize)]
+struct SymbolizedStackFrame {
+    addr: u64,
+    name: String,
+    start_addr: u64,
+    offset: usize,
+}
+
+impl<S: Symbolizer> Serialize for SymbolizedSkbdropEvent<'_, S> {
+    fn serialize<Ser>(&self, serializer: Ser) -> Result<Ser::Ok, Ser::Error>
+    where
+        Ser: serde::Serializer,
+    {
+        // Reuse the event's own serde output so l2/l3/l4 and future event fields stay intact.
+        let mut value = serde_json::to_value(self.event).map_err(Ser::Error::custom)?;
+
+        let stack_len = stack_len(self.event);
+        if stack_len > 0 {
+            let frames = self.event.stack[..stack_len]
+                .iter()
+                .copied()
+                .map(|addr| {
+                    let symbol = self.symbolizer.resolve(SymbolizeInput {
+                        source: self.source.clone(),
+                        addr,
+                    });
+
+                    SymbolizedStackFrame {
+                        addr,
+                        name: symbol.name.into_owned(),
+                        start_addr: symbol.start_addr,
+                        offset: symbol.offset,
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            let value = value.as_object_mut().ok_or_else(|| {
+                Ser::Error::custom("skbdrop event serializer must produce a JSON object")
+            })?;
+            value.insert(
+                "stack".to_string(),
+                serde_json::to_value(frames).map_err(Ser::Error::custom)?,
+            );
+        }
+
+        value.serialize(serializer)
+    }
+}
+
+fn stack_len(event: &SkbdropEvent) -> usize {
+    if event.stack_size <= 0 {
+        return 0;
+    }
+
+    ((event.stack_size as usize) / mem::size_of::<u64>()).min(event.stack.len())
 }

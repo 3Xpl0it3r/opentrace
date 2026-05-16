@@ -27,8 +27,9 @@ struct perf_event_t {
 
 // static const u8 config_key = 0;
 static const u32 event_heap_key = 0;
+static u8 config_key = 0;
 
-// BPF_HASH_MAP_DEF(config_map, u8, struct config);
+BPF_HASH_MAP_DEF(config_map, u8, struct config);
 
 // BPF_STACK_TRACE_DEF(stack_traces);
 
@@ -42,10 +43,19 @@ int perf_profile_samples(void *ctx) {
   event = bpf_map_lookup_elem(&event_heap, &event_heap_key);
   if (!event)
     return BPF_OK;
+
   set_process_info(&event->process_info);
+
+  struct config *cfg = bpf_map_lookup_elem(&config_map, &config_key);
+
+  if (!cfg || cfg->pid != event->process_info.pid) {
+    return BPF_OK;
+  }
+  bpf_printk("debug pid: %d", cfg->pid);
+
   event->kstack_sz =
       bpf_get_stack(ctx, event->kstack, sizeof(event->kstack), 0);
-  event->ustack_sz = bpf_get_stack(ctx, event->ustack, sizeof(event->ustack_sz),
+  event->ustack_sz = bpf_get_stack(ctx, event->ustack, sizeof(event->ustack),
                                    BPF_F_USER_STACK);
   event->cpu_id = bpf_get_smp_processor_id();
   event->timestamp = bpf_ktime_get_ns();

@@ -36,13 +36,23 @@ impl OpentraceMcpServer {
     }
 
     #[tool(
-        description = "Trace kernel skb drop events via eBPF kprobe on kfree_skb_reason, returning dropped packet details (IP addresses, ports, protocol, process info, kernel stack). Configurable packet count and timeout."
+        description = "通过 eBPF kprobe 跟踪内核 skb 丢包事件（kfree_skb_reason），返回丢包详情（IP 地址、端口、协议、进程信息、内核堆栈）。支持配置捕获包数量及超时时间。适用于网络丢包，网络不通等问题排查。"
     )]
     async fn skbdrop(
         &self,
         params: Parameters<tools::skbdrop::SkbdropMcpToolParams>,
     ) -> Result<CallToolResult, ErrorData> {
         tools::skbdrop::tool_handler(params.0, &self.probe_registry)
+    }
+
+    #[tool(
+        description = "通过 eBPF perf_event_open 采样 CPU 性能，捕获运行进程的堆栈跟踪（内核 + 用户空间），识别 CPU 热点和性能瓶颈。支持按 PID 或 CPU 过滤。适用于 CPU 过高，性能瓶颈等问题排查。"
+    )]
+    async fn perf(
+        &self,
+        params: Parameters<tools::perf::PerfMcpToolParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        tools::perf::tool_handler(params.0, &self.probe_registry).await
     }
 }
 

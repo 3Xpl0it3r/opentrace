@@ -1,0 +1,21 @@
+// Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
+
+mod profile;
+
+use opentrace_bpf::ProbeRegistry;
+
+use crate::errors::CliError;
+use crate::options::perf::ProfileOptions;
+
+pub async fn run(
+    command: crate::options::perf::Subcommand,
+    registry: &mut ProbeRegistry,
+    object: &mut opentrace_bpf::CollectorObject,
+) -> Result<(), CliError> {
+    match command {
+        crate::options::perf::Subcommand::Profile(options) => {
+            profile::run_as_profile(options, registry, object).await?;
+        }
+    }
+    Ok(())
+}

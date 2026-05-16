@@ -10,9 +10,7 @@ pub trait Collector {
     fn attach_probe(&mut self) -> Result<(), EbpfError>;
 }
 
-pub use cpu::{
-    ProfileCollector, ProfileConfig, ProfileConsoleExporter, ProfileEvent, ProfileFoldedFormatter,
-};
+pub use cpu::{ProfileCollector, ProfileConfig, ProfileEvent, ProfileSimpleExporter};
 pub use net::{
     SkbdropCollector, SkbdropConfig, SkbdropConsoleExpoter, SkbdropEvent,
     SkbdropEventDefaultFormatter,
