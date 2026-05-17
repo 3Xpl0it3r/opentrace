@@ -8,7 +8,7 @@ use opentrace_bpf::collector::net::{
     SkbdropCollector, SkbdropConfig, SkbdropConsoleExpoter, SkbdropEvent,
     SkbdropEventDefaultFormatter,
 };
-use opentrace_bpf::symbol;
+use opentrace_bpf::symbol::{self, Source};
 
 use crate::errors::CliError;
 use crate::options::trace::SkbDropOptions;
@@ -31,12 +31,14 @@ pub fn run_as_skbdrop(
     registry: &mut ProbeRegistry,
     object: &mut opentrace_bpf::CollectorObject,
 ) -> Result<(), CliError> {
-    let symbolizer = symbol::SymbolizerRegistry::default();
+    let symbolizer_provider = symbol::SymbolizerProvider::default();
+    let symbolizer = symbolizer_provider.get_symbolizer(&Source::Kernel);
+
     let mut collector = SkbdropCollector::new(
         object,
         registry,
         options.to_config().into(),
-        SkbdropConsoleExpoter::new(&symbolizer),
+        SkbdropConsoleExpoter::new(symbolizer),
     )?;
 
     collector.attach_probe()?;

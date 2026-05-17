@@ -84,8 +84,11 @@ pub mod trace {
 }
 
 pub mod perf {
+    use clap::ValueEnum;
     use clap::{Args, Parser};
     use opentrace_bpf::collector::cpu::ProfileConfig;
+
+    use crate::errors::CliError;
 
     #[derive(Debug, clap::Subcommand)]
     pub enum Subcommand {
@@ -93,11 +96,16 @@ pub mod perf {
         Profile(ProfileOptions),
     }
 
+    #[derive(Clone, Copy, Debug, ValueEnum)]
+    pub enum Language {
+        Java,
+    }
+
     #[derive(Debug, Args)]
     pub struct ProfileOptions {
         /// 针对指定pid采样, （不填写代表全采，0 代表只采集当前自己，>0
         /// 代表指定进程)
-        #[arg(short = 'p', long = "pid")]
+        #[arg(short = 'p', long = "pid",value_parser = clap::value_parser!(i32).range(1..))]
         pub pid: Option<i32>,
 
         /// 针对指定tid采样,必须提供pid (基于pid dumpsymbol)
@@ -112,18 +120,14 @@ pub mod perf {
         #[arg(short = 'g', long = "group", default_value_t = -1)]
         pub group_id: i32,
 
-        /// 针对某一个cgroup里面的所有的进程都采样
+        /// 符号解析扩,支持针对指定类型的符号解析
         #[arg(long = "language")]
-        pub language: Option<String>,
+        pub language: Option<Language>,
     }
 
     impl From<ProfileOptions> for ProfileConfig {
         fn from(options: ProfileOptions) -> Self {
-            /* Self { pid: options.pid, tids: options.map, cpu: (), group_id: () } */
-            let pid: i32 = match options.pid {
-                Some(pid) if pid >= 0 => pid,
-                None | Some(_) => -1,
-            };
+            let pid: i32 = if let Some(pid) = options.pid { pid } else { -1 };
             Self {
                 pid: pid,
                 tids: options.tid.map(|v| vec![v]),

@@ -35,8 +35,6 @@ impl super::Symbolizer for BalzeSymbolizer {
             Err(_) | Ok(_) => ResolvedSymbol::unknown(addr, 0),
         }
     }
-
-    fn update(&mut self, source: &Source) {}
 }
 
 impl BalzeSymbolizer {

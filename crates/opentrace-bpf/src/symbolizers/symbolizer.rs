@@ -7,5 +7,4 @@ use super::types::{ResolvedSymbol, Source, SymbolizeInput};
 
 pub trait Symbolizer {
     fn resolve(&self, input: SymbolizeInput) -> ResolvedSymbol<'_>;
-    fn update(&mut self, source: &Source);
 }

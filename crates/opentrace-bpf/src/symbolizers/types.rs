@@ -19,7 +19,9 @@ pub enum Source<'a> {
 impl Source<'_> {
     pub fn backend(&self) -> BackendKind {
         match self {
-            Source::CPid { pid: _ } | Source::ELf { bin: _ } | Source::Kernel => BackendKind::Blaze,
+            Source::CPid { pid: _ } | Source::ELf { bin: _ } | Source::Kernel => {
+                BackendKind::Blaze
+            }
             Source::JavaPid { pid } => BackendKind::Java,
         }
     }

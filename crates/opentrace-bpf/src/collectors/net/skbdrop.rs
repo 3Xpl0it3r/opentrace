@@ -188,12 +188,12 @@ impl CollectorTrait for Collector<'_> {
     }
 }
 
-pub struct DefaultFormatter<'a, S> {
-    symbolizer: &'a S,
+pub struct DefaultFormatter<'a> {
+    symbolizer: &'a dyn Symbolizer,
     source: Source<'a>,
 }
 
-impl<'a, S: Symbolizer> StreamFormatter<Event> for DefaultFormatter<'a, S> {
+impl<'a> StreamFormatter<Event> for DefaultFormatter<'a> {
     fn format<W: std::io::Write>(&self, w: &mut W, event: &Event) -> Result<(), std::io::Error> {
         use std::io::Write as _;
 
@@ -248,12 +248,12 @@ impl<'a, S: Symbolizer> StreamFormatter<Event> for DefaultFormatter<'a, S> {
 }
 
 // 用于debug ，默认实现
-pub struct DefaultConsoleExporter<'a, S: Symbolizer> {
-    formatter: DefaultFormatter<'a, S>,
+pub struct DefaultConsoleExporter<'a> {
+    formatter: DefaultFormatter<'a>,
 }
 
-impl<'a, S: Symbolizer> DefaultConsoleExporter<'a, S> {
-    pub fn new(symbolizer: &'a S) -> Self {
+impl<'a> DefaultConsoleExporter<'a> {
+    pub fn new(symbolizer: &'a dyn Symbolizer) -> Self {
         Self {
             formatter: DefaultFormatter {
                 symbolizer,
@@ -263,10 +263,7 @@ impl<'a, S: Symbolizer> DefaultConsoleExporter<'a, S> {
     }
 }
 
-impl<S> Exporter<Event> for DefaultConsoleExporter<'_, S>
-where
-    S: Symbolizer,
-{
+impl Exporter<Event> for DefaultConsoleExporter<'_> {
     fn dispatch(&mut self, event: Event) {
         let mut stdout = std::io::stdout().lock();
         if let Err(err) = self.formatter.format(&mut stdout, &event) {

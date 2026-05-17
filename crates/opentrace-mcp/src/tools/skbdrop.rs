@@ -15,7 +15,7 @@ use opentrace_bpf::collector::Collector;
 use opentrace_bpf::collector::net::{SkbdropCollector, SkbdropConfig, SkbdropEvent};
 use opentrace_bpf::format::StreamFormatter;
 use opentrace_bpf::protocols::{eth_proto, ip_proto};
-use opentrace_bpf::symbol::{Source, SymbolizeInput, Symbolizer, SymbolizerRegistry};
+use opentrace_bpf::symbol::{Source, SymbolizeInput, Symbolizer, SymbolizerProvider};
 use opentrace_bpf::{Exporter, ProbeRegistry};
 
 use crate::errors::MCPError;
@@ -90,7 +90,7 @@ pub(crate) fn tool_handler(
     probe_registry: &ProbeRegistry,
 ) -> Result<CallToolResult, ErrorData> {
     let mut open_project = opentrace_bpf::open_object_storage();
-    let symbolizer = SymbolizerRegistry::default();
+    let symbolizer = SymbolizerProvider::default();
     let (exporter, rx) = McpExporter::new(
         10,
         JsonFormatter {

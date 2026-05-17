@@ -21,7 +21,7 @@ pub use probes::Registry as ProbeRegistry;
 pub use skeleton::{CollectorObject, open_object_storage};
 
 pub mod symbol {
-    pub use crate::symbolizers::SymbolizerRegistry;
+    pub use crate::symbolizers::SymbolizerProvider;
     pub use crate::symbolizers::{ResolvedSymbol, Symbolizer};
     pub use crate::symbolizers::{Source, SymbolizeInput};
 }

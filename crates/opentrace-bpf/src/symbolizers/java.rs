@@ -6,7 +6,7 @@ use super::ResolvedSymbol;
 
 const SYM_DUMP_TOOLS: &str = "jallsyms";
 
-// todo  1. symbols 缓存下来 2. pid失效 3. symbols更新 等情况处理
+// 因此Java的符号表是“流式数据”，不能跨时间复用，所以缓存下来没有意义，移除缓存todo
 pub struct JavaSymbolizer<'a> {
     /* tool: &'static str, */
     cache: Vec<(ResolvedSymbol<'a>, u64)>,
@@ -57,11 +57,6 @@ impl<'a> super::Symbolizer for JavaSymbolizer<'a> {
         }
     }
 
-    fn update(&mut self, source: &super::Source) {
-        if !self.cache.is_empty() {
-            return;
-        }
-    }
 }
 
 fn symbol_contains(symbol: &ResolvedSymbol<'_>, size: u64, addr: u64) -> bool {

@@ -9,11 +9,11 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 
 use opentrace_bpf::collector::Collector;
 use opentrace_bpf::collector::cpu::{ProfileCollector, ProfileEvent, ProfileSimpleExporter};
-use opentrace_bpf::symbol::{Source, SymbolizeInput, Symbolizer, SymbolizerRegistry};
+use opentrace_bpf::symbol::{Source, SymbolizeInput, Symbolizer, SymbolizerProvider};
 use opentrace_bpf::{Exporter, ProbeRegistry};
 
 use crate::errors::CliError;
-use crate::options::perf::ProfileOptions;
+use crate::options::perf::{Language, ProfileOptions};
 
 const KSTACK_FLAGS: u64 = 0xFFFFFFFF;
 
@@ -22,18 +22,18 @@ pub async fn run_as_profile(
     registry: &mut ProbeRegistry,
     object: &mut opentrace_bpf::CollectorObject,
 ) -> Result<(), CliError> {
-    let mut symbolizer = SymbolizerRegistry::default();
+    let mut symbolizer_provider = SymbolizerProvider::default();
 
-    // 如果-1 或者或者不填写代表全采， 全采只dump kernel symbol(全进程dump 代价太大)
-    // todo 后续离线可以支持, 或者有symbol server
     let source = match options.pid {
-        Some(ref pid) if *pid > 0 => match options.language {
-            Some(ref java) => Source::JavaPid { pid: *pid as u32 },
-            None | Some(_) => Source::CPid { pid: *pid as u32 },
+        Some(ref pid) if let Some(language) = options.language => match language {
+            Language::Java => Source::JavaPid { pid: (*pid) as u32 }, // pid 已经在cli里面限制了大小
         },
-        None | Some(_) => Source::Kernel,
+        None => Source::Kernel,
+        Some(ref pid) => Source::CPid { pid: (*pid) as u32 },
     };
-    symbolizer.update(&source);
+
+    symbolizer_provider.register(&source);
+    let symbolizer = symbolizer_provider.get_symbolizer(&source);
 
     let (exporter, mut event_rx) = ProfileSimpleExporter::new();
     let mut collector = ProfileCollector::new(object, registry, options.into(), exporter)?;
@@ -70,7 +70,7 @@ pub async fn run_as_profile(
         }
     }
     println!("采样完成，开始处理......");
-    let finnal_stack_storage = pre_handle_stack_storage.migrate_into_new_tree(source, &symbolizer);
+    let finnal_stack_storage = pre_handle_stack_storage.migrate_into_new_tree(source, symbolizer);
     println!("{}", finnal_stack_storage);
 
     Ok(())
@@ -95,7 +95,7 @@ impl StacksStorage {
         self.root.insert(&stacks, true);
     }
 
-    fn migrate_into_new_tree(self, source: Source, resolver: &impl Symbolizer) -> Self {
+    fn migrate_into_new_tree(self, source: Source, resolver: &dyn Symbolizer) -> Self {
         let mut storage = StacksStorage::default();
         storage.root.account = self.root.account;
 
@@ -197,7 +197,7 @@ impl Stacknode {
         self,
         parent: &mut Stacknode,
         source: Source,
-        symbolizer: &impl Symbolizer,
+        symbolizer: &dyn Symbolizer,
     ) {
         let symbol_source = if self.is_ustack {
             source.clone()

@@ -12,7 +12,7 @@ use tokio::time::Duration;
 use opentrace_bpf::ProbeRegistry;
 use opentrace_bpf::collector::Collector;
 use opentrace_bpf::collector::cpu::{ProfileCollector, ProfileConfig, ProfileSimpleExporter};
-use opentrace_bpf::symbol::{Source, SymbolizeInput, Symbolizer, SymbolizerRegistry};
+use opentrace_bpf::symbol::{Source, SymbolizeInput, Symbolizer, SymbolizerProvider};
 
 use crate::errors::MCPError;
 
@@ -84,7 +84,7 @@ pub(crate) async fn tool_handler(
         Source::CPid {
             pid: params.pid.max(0) as u32,
         },
-        &SymbolizerRegistry::default(),
+        &SymbolizerProvider::default(),
     );
 
     Ok(CallToolResult::success(vec![Content::text(

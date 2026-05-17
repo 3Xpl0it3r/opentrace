@@ -3,10 +3,10 @@
 mod balzesym;
 /* mod kernel; */
 mod symbolizer;
-mod registry;
+mod provider;
 mod types;
 mod java;
 
-pub use registry::SymbolizerRegistry;
+pub use provider::SymbolizerProvider;
 pub use symbolizer::Symbolizer;
 pub use types::{BackendKind, ResolvedSymbol, Source, SymbolizeInput};
