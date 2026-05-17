@@ -49,6 +49,17 @@
    cargo build --package opentrace-cli
    ```
 
+5. （可选）Java Profile 依赖。
+
+   如果需要对 Java 应用进行性能分析，需要安装 [jallsyms](https://github.com/3Xpl0it3r/jallsyms) 工具来获取 Java 符号信息：
+
+   ```bash
+   git clone https://github.com/3Xpl0it3r/jallsyms.git
+   cd jallsyms
+   make
+   sudo make install
+   ```
+
 ## 使用说明
 
 1. 使用 CLI 追踪 skb drop 事件。
