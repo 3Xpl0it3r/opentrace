@@ -4,20 +4,31 @@ use std::borrow::Cow;
 #[derive(Eq, Hash, PartialEq)]
 pub enum BackendKind {
     Blaze,
+    Java,
 }
 
 // 由于每次抓包Source 相对档次抓包就固定了(针对特定二进制程序)
 #[derive(Clone)]
 pub enum Source<'a> {
-    Pid { pid: u32 },
+    CPid { pid: u32 },
     ELf { bin: Cow<'a, str> },
+    JavaPid { pid: u32 },
     Kernel,
 }
 
 impl Source<'_> {
     pub fn backend(&self) -> BackendKind {
         match self {
-            Source::Pid { pid: _ } | Source::ELf { bin: _ } | Source::Kernel => BackendKind::Blaze,
+            Source::CPid { pid: _ } | Source::ELf { bin: _ } | Source::Kernel => BackendKind::Blaze,
+            Source::JavaPid { pid } => BackendKind::Java,
+        }
+    }
+
+    #[inline]
+    pub fn pid(&self) -> u32 {
+        match self {
+            Source::CPid { pid } | Source::JavaPid { pid } => *pid,
+            _ => 0,
         }
     }
 }
@@ -44,7 +55,7 @@ pub struct ResolvedSymbol<'a> {
 impl ResolvedSymbol<'_> {
     pub fn unknown(addr: u64, offset: usize) -> Self {
         Self {
-            name: Cow::Owned(format!("0x{:x}", addr)),
+            name: Cow::Owned(format!("!0x{:x}", addr)),
             start_addr: addr,
             offset,
         }

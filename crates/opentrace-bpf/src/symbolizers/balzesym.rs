@@ -14,13 +14,14 @@ impl super::Symbolizer for BalzeSymbolizer {
         let SymbolizeInput { source, addr } = input;
 
         let source = match source {
-            Source::Pid { pid } => {
+            Source::CPid { pid } => {
                 symbolize::source::Source::from(symbolize::source::Process::new(pid.into()))
             }
             Source::ELf { bin } => todo!(),
             Source::Kernel => {
                 symbolize::source::Source::Kernel(symbolize::source::Kernel::default())
             }
+            Source::JavaPid { pid } => todo!(),
         };
         let input = symbolize::Input::AbsAddr(addr);
         let sym_ed = self.symbolizer.symbolize_single(&source, input);
@@ -34,6 +35,8 @@ impl super::Symbolizer for BalzeSymbolizer {
             Err(_) | Ok(_) => ResolvedSymbol::unknown(addr, 0),
         }
     }
+
+    fn update(&mut self, source: &Source) {}
 }
 
 impl BalzeSymbolizer {

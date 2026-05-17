@@ -111,6 +111,10 @@ pub mod perf {
         /// 针对某一个cgroup里面的所有的进程都采样
         #[arg(short = 'g', long = "group", default_value_t = -1)]
         pub group_id: i32,
+
+        /// 针对某一个cgroup里面的所有的进程都采样
+        #[arg(long = "language")]
+        pub language: Option<String>,
     }
 
     impl From<ProfileOptions> for ProfileConfig {

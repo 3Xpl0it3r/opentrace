@@ -81,7 +81,7 @@ pub(crate) async fn tool_handler(
         .await
         .map_err(ErrorData::from)?;
     let stack_storage = stack_storage.migrate_into_new_tree(
-        Source::Pid {
+        Source::CPid {
             pid: params.pid.max(0) as u32,
         },
         &SymbolizerRegistry::default(),

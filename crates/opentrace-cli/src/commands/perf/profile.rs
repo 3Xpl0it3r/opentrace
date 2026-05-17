@@ -22,14 +22,18 @@ pub async fn run_as_profile(
     registry: &mut ProbeRegistry,
     object: &mut opentrace_bpf::CollectorObject,
 ) -> Result<(), CliError> {
-    let symbolizer = SymbolizerRegistry::default();
+    let mut symbolizer = SymbolizerRegistry::default();
 
     // 如果-1 或者或者不填写代表全采， 全采只dump kernel symbol(全进程dump 代价太大)
-    // todo 后续离线可以支持, 或者有symbol server 
+    // todo 后续离线可以支持, 或者有symbol server
     let source = match options.pid {
-        Some(pid) if pid > 0 => Source::Pid { pid: pid as u32 },
+        Some(ref pid) if *pid > 0 => match options.language {
+            Some(ref java) => Source::JavaPid { pid: *pid as u32 },
+            None | Some(_) => Source::CPid { pid: *pid as u32 },
+        },
         None | Some(_) => Source::Kernel,
     };
+    symbolizer.update(&source);
 
     let (exporter, mut event_rx) = ProfileSimpleExporter::new();
     let mut collector = ProfileCollector::new(object, registry, options.into(), exporter)?;
@@ -252,7 +256,7 @@ impl Stacknode {
         let stack_name = self
             .func_name
             .as_deref()
-            .map_or_else(|| format!("{:#x}", self.stack_addr), ToOwned::to_owned);
+            .map_or_else(|| format!("-{}", self.stack_addr), ToOwned::to_owned);
 
         writeln!(f, "{header:<header_width$} {stack_kind} {stack_name}")?;
 

@@ -5,6 +5,7 @@ mod balzesym;
 mod symbolizer;
 mod registry;
 mod types;
+mod java;
 
 pub use registry::SymbolizerRegistry;
 pub use symbolizer::Symbolizer;
