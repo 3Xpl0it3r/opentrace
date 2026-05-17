@@ -23,9 +23,12 @@ pub async fn run_as_profile(
     object: &mut opentrace_bpf::CollectorObject,
 ) -> Result<(), CliError> {
     let symbolizer = SymbolizerRegistry::default();
-    // 需要做校验，pid不能是负数
-    let source = Source::Pid {
-        pid: options.pid as u32,
+
+    // 如果-1 或者或者不填写代表全采， 全采只dump kernel symbol(全进程dump 代价太大)
+    // todo 后续离线可以支持, 或者有symbol server 
+    let source = match options.pid {
+        Some(pid) if pid > 0 => Source::Pid { pid: pid as u32 },
+        None | Some(_) => Source::Kernel,
     };
 
     let (exporter, mut event_rx) = ProfileSimpleExporter::new();

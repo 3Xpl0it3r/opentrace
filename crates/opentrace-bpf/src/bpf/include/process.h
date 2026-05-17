@@ -7,8 +7,10 @@
 #define TASK_COMM_LEN 16
 
 struct process_info_t {
+  // 进程id
   u32 pid;
-  u32 tgid;
+  // 线程id
+  u32 tid;
   char comm[TASK_COMM_LEN];
 };
 
@@ -16,7 +18,7 @@ static __always_inline void
 set_process_info(struct process_info_t *process_info) {
   u64 tgid_pid = bpf_get_current_pid_tgid();
   bpf_get_current_comm(&process_info->comm, sizeof(process_info->comm));
-  process_info->tgid = (u32)tgid_pid;
+  process_info->tid = (u32)tgid_pid;
   process_info->pid = tgid_pid >> 32;
 }
 

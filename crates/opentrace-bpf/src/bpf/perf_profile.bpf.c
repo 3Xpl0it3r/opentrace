@@ -8,11 +8,8 @@
 
 #define PERF_MAX_STACK_DEPTH 16
 
-// 配置文件
-struct config {
-  // 基于pid过滤
-  u32 pid;
-};
+// 取消了config, 因为perf event 就是基于tid去attach，这个天然就带有过滤属性
+// 如果用户指定了cpu -1想要抓取某一个cpu上所有的事件，就更没有必要去过滤pid了
 
 // 发送给用户态的event
 struct perf_event_t {
@@ -27,9 +24,6 @@ struct perf_event_t {
 
 // static const u8 config_key = 0;
 static const u32 event_heap_key = 0;
-static u8 config_key = 0;
-
-BPF_HASH_MAP_DEF(config_map, u8, struct config);
 
 // BPF_STACK_TRACE_DEF(stack_traces);
 
@@ -37,6 +31,7 @@ BPF_PERF_EVENT_ARRAY_DEF(perf_events);
 
 BPF_PERCPU_ARRAY_DEF(event_heap, struct perf_event_t, 1);
 
+// perf_event是基于线程attach,
 SEC("perf_event")
 int perf_profile_samples(void *ctx) {
   struct perf_event_t *event = NULL;
@@ -45,13 +40,6 @@ int perf_profile_samples(void *ctx) {
     return BPF_OK;
 
   set_process_info(&event->process_info);
-
-  struct config *cfg = bpf_map_lookup_elem(&config_map, &config_key);
-
-  if (!cfg || cfg->pid != event->process_info.pid) {
-    return BPF_OK;
-  }
-  bpf_printk("debug pid: %d", cfg->pid);
 
   event->kstack_sz =
       bpf_get_stack(ctx, event->kstack, sizeof(event->kstack), 0);

@@ -8,9 +8,11 @@ use libbpf_rs::{Link, MapCore, MapFlags, OpenObject, PerfBuffer, PerfBufferBuild
 use serde::{Deserialize, Serialize};
 
 use crate::bpf::perf_profile::{self, PerfProfileSkel, PerfProfileSkelBuilder};
+use crate::collector::cpu;
 use crate::collectors::Collector as CollectorTrait;
 use crate::probes::Registry as ProbeRegistry;
 use crate::types::process::ProcessInfo;
+use crate::utils::procsfs;
 use crate::utils::syscall::PerfEventFdBuilder;
 use crate::{EbpfError, Exporter};
 
@@ -48,32 +50,30 @@ impl Event {
     }
 }
 
-// ebpf程序配置文件
+// 面向用户配置文件
 #[derive(Default)]
 pub struct Config {
+    // pid 和 tid 只能二选一，设置了pid 就不能设置tid, 设置了tid就不能设置pid
+    // 如果两个都不设置，则默认为0
+    // 基于pid 过滤, 会捕获进程号是pid下面所有线程的event事件
+    // 不填/none
     pub pid: i32,
+    // 基于tid 过滤，可以指定一个或者多个
+    // tid必须 > 0
+    pub tids: Option<Vec<u32>>,
+    // cpu -1 代表所有的cpu, >=0 代表指定的cpu
     pub cpu: i32,
     pub group_id: i32,
 }
 
-#[repr(C)]
-struct InnerConfig {
-    pid: u32,
-}
-
-impl From<Config> for InnerConfig {
-    fn from(config: Config) -> Self {
-        Self {
-            pid: if config.pid > 0 { config.pid as u32 } else { 0 },
+impl Config {
+    fn validate(config: &Config) -> Result<(), EbpfError> {
+        if config.pid == -1 && config.cpu == -1 {
+            return Err(EbpfError::ConfigErr(
+                "ProfileConfig'field pid and cpu cann't be -1 at same time".into(),
+            ));
         }
-    }
-}
-
-impl InnerConfig {
-    fn as_bytes(&self) -> &[u8] {
-        let ptr = self as *const Self as *const u8;
-        let len = mem::size_of_val(self);
-        unsafe { slice::from_raw_parts(ptr, len) }
+        Ok(())
     }
 }
 
@@ -84,7 +84,7 @@ pub struct Collector<'a> {
     /* perf_event_builder: PerfEventFdBuilder, */
     /// perf event fd, trans into OwnerFd, when Program is dropped, when pfd will also be dropped
     perf_buffer: PerfBuffer<'a>,
-    pfd: OwnedFd,
+    pfds: Vec<OwnedFd>,
     _links: Vec<Link>,
 }
 
@@ -96,11 +96,24 @@ impl<'a> Collector<'a> {
         mut exporter: impl Exporter<Event> + 'a,
     ) -> Result<Self, EbpfError> {
         let mut pfd_builder = PerfEventFdBuilder::default();
-        if config.pid > 0 {
-            pfd_builder.attach_pid(config.pid);
-        }
+
         pfd_builder.attach_cpu(config.cpu);
-        let pfd = pfd_builder.build()?;
+
+        let tids = if config.pid >= 0 {
+            procsfs::thread_ids(config.pid as u32).unwrap_or(vec![])
+        } else {
+            vec![]
+        };
+
+        let mut pfds = Vec::new();
+        if tids.is_empty() {
+            pfd_builder.attach_tid(-1 as i32);
+        } else {
+            for tid in tids {
+                pfd_builder.attach_tid(tid as i32);
+                pfds.push(pfd_builder.build()?);
+            }
+        }
 
         let skel = PerfProfileSkelBuilder::default().open(object)?.load()?;
         let perf_buffer = PerfBufferBuilder::new(&skel.maps.perf_events)
@@ -109,19 +122,13 @@ impl<'a> Collector<'a> {
             })
             .build()?;
 
-        skel.maps.config_map.update(
-            &CONFIG_KEY.to_ne_bytes(),
-            InnerConfig::from(config).as_bytes(),
-            MapFlags::ANY,
-        )?;
-
         Ok(Self {
             perf_buffer: perf_buffer,
             probe_registry: probe_registry,
             skel,
             _links: Vec::new(),
             /* perf_event_builder: pfd_builder, */
-            pfd: pfd,
+            pfds: pfds,
         })
     }
 }
@@ -133,12 +140,14 @@ impl<'a> CollectorTrait for Collector<'a> {
     }
 
     fn attach_probe(&mut self) -> Result<(), crate::EbpfError> {
-        let link = self
-            .skel
-            .progs
-            .perf_profile_samples
-            .attach_perf_event(self.pfd.as_raw_fd())?;
-        self._links.push(link);
+        for pfd in self.pfds.iter() {
+            let link = self
+                .skel
+                .progs
+                .perf_profile_samples
+                .attach_perf_event(pfd.as_raw_fd())?;
+            self._links.push(link);
+        }
         Ok(())
     }
 }

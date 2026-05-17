@@ -45,13 +45,14 @@ pub struct PerfEventFdBuilder {
     /// -1 代表所有进程
     /// 0 代表调用perf程序本身, 默认 (不支持pid=-1, cpu=-1)
     /// >0 用户指定进程
-    pid: i32,
+    tid: i32,
     group_id: i32,
 }
 
+// perf event其实是根据tid 去attach的，因此这个地方需要传tid进来
 impl PerfEventFdBuilder {
-    pub fn attach_pid(&mut self, pid: i32) {
-        self.pid = pid
+    pub fn attach_tid(&mut self, tid: i32) {
+        self.tid = tid
     }
     pub fn attach_cpu(&mut self, cpu: i32) {
         self.cpu = cpu
@@ -65,7 +66,7 @@ impl PerfEventFdBuilder {
             syscall(
                 SYS_PERF_EVENT_OPEN,
                 &self.attrs,
-                self.pid,
+                self.tid,
                 self.cpu,
                 self.group_id,
                 0,
@@ -74,8 +75,8 @@ impl PerfEventFdBuilder {
         if fd == -1 {
             let err = std::io::Error::last_os_error();
             Err(EbpfError::SyscallErr(format!(
-                "open_perf_event failed: pid={}, cpu={}, group_id={}, err={}",
-                self.pid, self.cpu, self.group_id, err
+                "open_perf_event failed: tid={}, cpu={}, group_id={}, err={}",
+                self.tid, self.cpu, self.group_id, err
             )))
         } else {
             Ok(unsafe { OwnedFd::from_raw_fd(fd as RawFd) })
@@ -99,7 +100,7 @@ impl Default for PerfEventFdBuilder {
         Self {
             attrs: attrs,
             cpu: 0,
-            pid: 0,
+            tid: 0,
             group_id: -1,
         }
     }

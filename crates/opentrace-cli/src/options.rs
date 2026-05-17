@@ -84,7 +84,7 @@ pub mod trace {
 }
 
 pub mod perf {
-    use clap::Args;
+    use clap::{Args, Parser};
     use opentrace_bpf::collector::cpu::ProfileConfig;
 
     #[derive(Debug, clap::Subcommand)]
@@ -95,23 +95,34 @@ pub mod perf {
 
     #[derive(Debug, Args)]
     pub struct ProfileOptions {
-        /// Process ID (PID) to profile. 0 means the current process.
-        #[arg(short = 'p', long = "pid", default_value_t = 0)]
-        pub pid: i32,
+        /// 针对指定pid采样, （不填写代表全采，0 代表只采集当前自己，>0
+        /// 代表指定进程)
+        #[arg(short = 'p', long = "pid")]
+        pub pid: Option<i32>,
 
-        /// CPU to profile. -1 means all CPUs supported by the perf event builder.
+        /// 针对指定tid采样,必须提供pid (基于pid dumpsymbol)
+        #[arg(long = "tid", requires = "pid")]
+        pub tid: Option<u32>,
+
+        /// 针对某一个cpu上所有进程都采样
         #[arg(short = 'c', long = "cpu", default_value_t = -1)]
         pub cpu: i32,
 
-        /// Cgroup id
+        /// 针对某一个cgroup里面的所有的进程都采样
         #[arg(short = 'g', long = "group", default_value_t = -1)]
         pub group_id: i32,
     }
 
     impl From<ProfileOptions> for ProfileConfig {
         fn from(options: ProfileOptions) -> Self {
+            /* Self { pid: options.pid, tids: options.map, cpu: (), group_id: () } */
+            let pid: i32 = match options.pid {
+                Some(pid) if pid >= 0 => pid,
+                None | Some(_) => -1,
+            };
             Self {
-                pid: options.pid,
+                pid: pid,
+                tids: options.tid.map(|v| vec![v]),
                 cpu: options.cpu,
                 group_id: options.group_id,
             }
