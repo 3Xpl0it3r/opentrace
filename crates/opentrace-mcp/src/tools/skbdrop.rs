@@ -85,12 +85,21 @@ impl SkbdropMcpToolParams {
     }
 }
 
+struct SymRef<'a>(&'a dyn Symbolizer);
+
+impl Symbolizer for SymRef<'_> {
+    fn resolve(&self, input: SymbolizeInput) -> opentrace_bpf::symbol::ResolvedSymbol<'_> {
+        self.0.resolve(input)
+    }
+}
+
 pub(crate) fn tool_handler(
     params: SkbdropMcpToolParams,
     probe_registry: &ProbeRegistry,
 ) -> Result<CallToolResult, ErrorData> {
     let mut open_project = opentrace_bpf::open_object_storage();
-    let symbolizer = SymbolizerProvider::default();
+    let provider = SymbolizerProvider::default();
+    let symbolizer = SymRef(provider.get_symbolizer(&Source::Kernel));
     let (exporter, rx) = McpExporter::new(
         10,
         JsonFormatter {

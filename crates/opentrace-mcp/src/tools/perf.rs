@@ -20,21 +20,31 @@ const KSTACK_FLAGS: u64 = 0xFFFFFFFF;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub(crate) struct PerfMcpToolParams {
-    /// 按进程 PID 过滤采样事件。设置为 0 时采样所有进程的 CPU 活动。
+    /// 针对指定pid采样, （不填写代表全采，0 代表只采集当前自己，>0
+    /// 代表指定进程)值在（0-i32:MAX)之间
     #[schemars(
-        description = "Filter profiling samples by process PID. Set to 0 to sample all processes."
+        description = "针对指定 pid 采样。不填写代表全采，0 代表只采集当前进程，>0 代表指定进程。值在 0 到 i32:MAX 之间。"
     )]
     #[serde(default)]
-    pid: i32,
+    pid: Option<i32>,
+
+    /// 针对指定tid采样,必须提供pid (基于pid dumpsymbol)
+    #[schemars(description = "针对指定 tid 采样。必须提供 pid（基于 pid dump symbol）。")]
+    #[serde(default)]
+    tid: Option<u32>,
 
     /// 绑定到指定 CPU 进行采样。设置为 -1 时在所有 CPU 上采样。
-    #[schemars(description = "Pin profiling to a specific CPU. Set to -1 to sample on all CPUs.")]
+    #[schemars(description = "绑定到指定 CPU 进行采样。设置为 -1 时在所有 CPU 上采样。")]
     #[serde(default = "default_cpu")]
     cpu: i32,
 
-    /// 指定 eBPF perf 采样持续时间（秒）。超时后自动停止并返回已采集的栈样本结果。
+    /// 符号解析扩展，支持针对指定类型的符号解析
+    #[schemars(description = "符号解析扩展，支持针对指定类型的符号解析。")]
+    #[serde(default)]
+    language: Option<String>,
+
     #[schemars(
-        description = "Duration of eBPF perf sampling in seconds. Sampling stops automatically after timeout and returns collected stack samples."
+        description = "指定 eBPF perf 采样持续时间（秒）。超时后自动停止并返回已采集的栈样本结果。"
     )]
     #[serde(default = "default_timeout")]
     timeout: u32,
@@ -50,8 +60,10 @@ fn default_timeout() -> u32 {
 
 impl PerfMcpToolParams {
     fn to_config(&self) -> ProfileConfig {
+        let pid: i32 = if let Some(pid) = self.pid { pid } else { -1 };
         ProfileConfig {
-            pid: self.pid,
+            pid: pid,
+            tids: self.tid.map(|v| vec![v]),
             cpu: self.cpu,
             group_id: 0,
         }
@@ -77,15 +89,21 @@ pub(crate) async fn tool_handler(
         .map_err(MCPError::from)
         .map_err(ErrorData::from)?;
 
+    // 开始采集数据
     let stack_storage = receive_profile_events(collector, event_rx, params.timeout())
         .await
         .map_err(ErrorData::from)?;
-    let stack_storage = stack_storage.migrate_into_new_tree(
-        Source::CPid {
-            pid: params.pid.max(0) as u32,
-        },
-        &SymbolizerProvider::default(),
-    );
+    // 符号解析
+    let mut symbolizer_provider = SymbolizerProvider::default();
+    let source = match (params.pid, params.language.as_deref()) {
+        (Some(pid), Some("java")) => Source::JavaPid { pid: pid as u32 },
+        (Some(pid), _) => Source::CPid { pid: pid as u32 },
+        (None, _) => Source::Kernel,
+    };
+    symbolizer_provider.register(&source);
+    let symbolizer = symbolizer_provider.get_symbolizer(&source);
+    // 聚合
+    let stack_storage = stack_storage.migrate_into_new_tree(source, symbolizer);
 
     Ok(CallToolResult::success(vec![Content::text(
         stack_storage.to_string(),
@@ -146,7 +164,7 @@ impl StacksStorage {
         self.root.insert(&stacks, true);
     }
 
-    fn migrate_into_new_tree(self, source: Source, resolver: &impl Symbolizer) -> Self {
+    fn migrate_into_new_tree(self, source: Source, resolver: &dyn Symbolizer) -> Self {
         let mut storage = StacksStorage::default();
         storage.root.account = self.root.account;
 
@@ -236,7 +254,7 @@ impl Stacknode {
         self,
         parent: &mut Stacknode,
         source: Source,
-        symbolizer: &impl Symbolizer,
+        symbolizer: &dyn Symbolizer,
     ) {
         let symbol_source = if self.is_ustack {
             source.clone()

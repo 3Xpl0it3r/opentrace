@@ -46,7 +46,7 @@ impl OpentraceMcpServer {
     }
 
     #[tool(
-        description = "通过 eBPF perf_event_open 采样 CPU 性能，捕获运行进程的堆栈跟踪（内核 + 用户空间），识别 CPU 热点和性能瓶颈。支持按 PID 或 CPU 过滤。适用于 CPU 过高，性能瓶颈等问题排查。"
+        description = "通过 eBPF perf_event_open 采样 CPU 性能，捕获运行进程的堆栈跟踪（内核 + 用户空间），识别 CPU 热点和性能瓶颈。支持按进程 PID 过滤采样事件（设为 0 采样所有进程）、绑定到指定 CPU（设为 -1 在所有 CPU 上采样）。可指定采样持续时间（秒），超时后自动停止并返回已采集的栈样本结果。适用于 CPU 过高、性能瓶颈等问题排查。"
     )]
     async fn perf(
         &self,
