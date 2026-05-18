@@ -1,6 +1,6 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fmt;
 
 use rmcp::model::{CallToolResult, Content};
@@ -193,7 +193,7 @@ impl fmt::Display for StacksStorage {
 
 impl IntoIterator for StacksStorage {
     type Item = Stacknode;
-    type IntoIter = std::collections::btree_map::IntoValues<(bool, u64), Stacknode>;
+    type IntoIter = std::collections::hash_map::IntoValues<u64, Stacknode>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.root.children.into_values()
@@ -208,7 +208,7 @@ struct Stacknode {
     account: u32,
     // 函数名
     func_name: Option<String>,
-    children: BTreeMap<(bool, u64), Stacknode>,
+    children: HashMap<u64, Stacknode>, /* children: BTreeMap<(bool, u64), Stacknode>, */
 }
 
 impl Default for Stacknode {
@@ -218,7 +218,7 @@ impl Default for Stacknode {
             account: 0,
             is_ustack: false,
             func_name: None,
-            children: BTreeMap::new(),
+            children: HashMap::new(),
         }
     }
 }
@@ -237,13 +237,13 @@ impl Stacknode {
 
         let child = self
             .children
-            .entry((is_ustack, *stack_addr))
+            .entry(*stack_addr)
             .or_insert_with(|| Stacknode {
                 is_ustack,
                 stack_addr: *stack_addr,
                 account: 0,
                 func_name: None,
-                children: BTreeMap::new(),
+                children: HashMap::new(),
             });
 
         child.account += 1;
@@ -285,13 +285,13 @@ impl Stacknode {
 
         let child = parent
             .children
-            .entry((self.is_ustack, stack_addr))
+            .entry(stack_addr)
             .or_insert_with(|| Stacknode {
-                stack_addr,
                 is_ustack: self.is_ustack,
+                stack_addr,
                 account: 0,
                 func_name: Some(func_name.into()),
-                children: BTreeMap::new(),
+                children: HashMap::new(),
             });
 
         child.account += self.account;
