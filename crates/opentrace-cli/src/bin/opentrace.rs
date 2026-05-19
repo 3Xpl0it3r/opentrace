@@ -14,13 +14,21 @@ async fn main() -> Result<(), CliError> {
 
     let mut probe_registry = ProbeRegistry::try_init()?;
     let mut object = opentrace_bpf::open_object_storage();
+    let ctx = (&opts).into();
 
     match opts.commands {
         options::Command::Trace(subcommand) => {
-            opentrace_cli::commands::trace::run(subcommand, &mut probe_registry, &mut object).await
+            opentrace_cli::commands::trace::run(
+                ctx,
+                subcommand,
+                opts.custom_btf_path,
+                &mut probe_registry,
+                &mut object,
+            )
+            .await
         }
         options::Command::Perf(subcommand) => {
-            opentrace_cli::commands::perf::run(subcommand, &mut probe_registry, &mut object)
+            opentrace_cli::commands::perf::run(ctx, subcommand, &mut probe_registry, &mut object)
                 .await
         }
     }

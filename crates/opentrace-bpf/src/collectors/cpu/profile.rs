@@ -11,6 +11,7 @@ use crate::bpf::perf_profile::{self, PerfProfileSkel, PerfProfileSkelBuilder};
 use crate::collector::cpu;
 use crate::collectors::Collector as CollectorTrait;
 use crate::probes::Registry as ProbeRegistry;
+use crate::skeleton::bpf_object_open_opts_with_custom_btf_path;
 use crate::types::process::ProcessInfo;
 use crate::utils::procsfs;
 use crate::utils::syscall::PerfEventFdBuilder;
@@ -64,6 +65,8 @@ pub struct Config {
     // cpu -1 代表所有的cpu, >=0 代表指定的cpu
     pub cpu: i32,
     pub group_id: i32,
+
+    pub custom_btf_path: Option<String>,
 }
 
 impl Config {
@@ -114,8 +117,16 @@ impl<'a> Collector<'a> {
                 pfds.push(pfd_builder.build()?);
             }
         }
+        let skel = match config.custom_btf_path {
+            Some(ref custom_btf_path) => PerfProfileSkelBuilder::default()
+                .open_opts(
+                    bpf_object_open_opts_with_custom_btf_path(custom_btf_path)?,
+                    object,
+                )?
+                .load()?,
+            None => PerfProfileSkelBuilder::default().open(object)?.load()?,
+        };
 
-        let skel = PerfProfileSkelBuilder::default().open(object)?.load()?;
         let perf_buffer = PerfBufferBuilder::new(&skel.maps.perf_events)
             .sample_cb(move |_cpu: i32, data: &[u8]| {
                 crate::exporter::load_and_dispatch(data, &mut exporter);

@@ -13,11 +13,13 @@ use opentrace_bpf::symbol::{Source, SymbolizeInput, Symbolizer, SymbolizerProvid
 use opentrace_bpf::{Exporter, ProbeRegistry};
 
 use crate::errors::CliError;
+use crate::options::CliOptsCtx;
 use crate::options::perf::{Language, ProfileOptions};
 
 const KSTACK_FLAGS: u64 = 0xFFFFFFFF;
 
 pub async fn run_as_profile(
+    ctx: CliOptsCtx,
     options: ProfileOptions,
     registry: &mut ProbeRegistry,
     object: &mut opentrace_bpf::CollectorObject,
@@ -36,7 +38,7 @@ pub async fn run_as_profile(
     let symbolizer = symbolizer_provider.get_symbolizer(&source);
 
     let (exporter, mut event_rx) = ProfileSimpleExporter::new();
-    let mut collector = ProfileCollector::new(object, registry, options.into(), exporter)?;
+    let mut collector = ProfileCollector::new(object, registry, options.to_config(ctx), exporter)?;
     collector.attach_probe()?;
 
     let mut pre_handle_stack_storage = StacksStorage::default();

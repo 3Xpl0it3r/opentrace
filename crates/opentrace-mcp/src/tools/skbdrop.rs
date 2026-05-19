@@ -132,11 +132,8 @@ pub(crate) fn receive_event_sync(
             if std::time::Instant::now() > deadline {
                 return Ok(CallToolResult::success(vec![]));
             }
-            match rx.try_recv() {
-                Ok(event) => {
-                    return Ok(CallToolResult::success(vec![Content::text(event)]));
-                }
-                Err(_) => {}
+            if let Ok(event) = rx.try_recv() {
+                return Ok(CallToolResult::success(vec![Content::text(event)]));
             }
             let _ = collector.poll(Duration::from_millis(100));
         }

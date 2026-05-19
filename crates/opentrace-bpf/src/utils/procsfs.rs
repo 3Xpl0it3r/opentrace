@@ -67,7 +67,11 @@ fn kernel_info() -> Result<(String, String), EbpfError> {
     let full_vsn = content.split_whitespace().nth(2).unwrap_or("").to_owned();
 
     // 从版本字符串中提取CPU架构（最后一个以'.'分割的部分）
-    let arch = full_vsn.split('.').last().unwrap_or_default().to_string();
+    let arch = full_vsn
+        .split('.')
+        .next_back()
+        .unwrap_or_default()
+        .to_string();
 
     Ok((full_vsn, arch))
 }

@@ -11,22 +11,26 @@ use opentrace_bpf::collector::net::{
 use opentrace_bpf::symbol::{self, Source};
 
 use crate::errors::CliError;
+use crate::options::CliOptsCtx;
 use crate::options::trace::SkbDropOptions;
 
 pub async fn run(
+    ctx: CliOptsCtx,
     command: crate::options::trace::Subcommand,
+    _custom_btf_path: Option<String>,
     registry: &mut ProbeRegistry,
     object: &mut opentrace_bpf::CollectorObject,
 ) -> Result<(), CliError> {
     match command {
         crate::options::trace::Subcommand::SkbDrop(skb_drop_options) => {
-            run_as_skbdrop(skb_drop_options, registry, object)?;
+            run_as_skbdrop(ctx, skb_drop_options, registry, object)?;
         }
     }
     Ok(())
 }
 
 pub fn run_as_skbdrop(
+    ctx: CliOptsCtx,
     options: SkbDropOptions,
     registry: &mut ProbeRegistry,
     object: &mut opentrace_bpf::CollectorObject,
@@ -37,7 +41,7 @@ pub fn run_as_skbdrop(
     let mut collector = SkbdropCollector::new(
         object,
         registry,
-        options.to_config().into(),
+        options.to_config(ctx).into(),
         SkbdropConsoleExpoter::new(symbolizer),
     )?;
 

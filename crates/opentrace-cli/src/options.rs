@@ -9,8 +9,23 @@ pub struct ServerOptions {}
 
 #[derive(Parser)]
 pub struct CliOptions {
+    /// 自定义btf 路径(如果内核不支持btf, 可以通过custom-btf-path 来指定btf来加载)
+    #[arg(long = "custom-btf-path", global = true)]
+    pub custom_btf_path: Option<String>,
     #[command(subcommand)]
     pub commands: Command,
+}
+
+pub struct CliOptsCtx {
+    pub custom_btf_path: Option<String>,
+}
+
+impl From<&CliOptions> for CliOptsCtx {
+    fn from(value: &CliOptions) -> Self {
+        Self {
+            custom_btf_path: value.custom_btf_path.clone().into(),
+        }
+    }
 }
 
 #[derive(Subcommand)]
@@ -23,7 +38,7 @@ pub enum Command {
 }
 
 pub mod trace {
-    use super::{Args, Config};
+    use super::{Args, CliOptsCtx, Config};
 
     #[derive(Debug, clap::Subcommand)]
     pub enum Subcommand {
@@ -67,7 +82,7 @@ pub mod trace {
     }
 
     impl SkbDropOptions {
-        pub fn to_config(&self) -> Config {
+        pub fn to_config(&self, ctx: CliOptsCtx) -> Config {
             Config {
                 is_v6: self.is_v6,
                 interface: self.interface.clone().unwrap_or_default(),
@@ -78,6 +93,7 @@ pub mod trace {
                 pod_name: self.pod_name.clone().unwrap_or_default(),
                 filter_express: self.expression.clone().unwrap_or_default(),
                 netns: 0,
+                custom_btf_path: ctx.custom_btf_path,
             }
         }
     }
@@ -89,6 +105,8 @@ pub mod perf {
     use opentrace_bpf::collector::cpu::ProfileConfig;
 
     use crate::errors::CliError;
+
+    use super::CliOptsCtx;
 
     #[derive(Debug, clap::Subcommand)]
     pub enum Subcommand {
@@ -125,14 +143,15 @@ pub mod perf {
         pub language: Option<Language>,
     }
 
-    impl From<ProfileOptions> for ProfileConfig {
-        fn from(options: ProfileOptions) -> Self {
-            let pid: i32 = if let Some(pid) = options.pid { pid } else { -1 };
-            Self {
+    impl ProfileOptions {
+        pub fn to_config(self, ctx: CliOptsCtx) -> ProfileConfig {
+            let pid: i32 = if let Some(pid) = self.pid { pid } else { -1 };
+            ProfileConfig {
                 pid: pid,
-                tids: options.tid.map(|v| vec![v]),
-                cpu: options.cpu,
-                group_id: options.group_id,
+                tids: self.tid.map(|v| vec![v]),
+                cpu: self.cpu,
+                group_id: self.group_id,
+                custom_btf_path: ctx.custom_btf_path,
             }
         }
     }

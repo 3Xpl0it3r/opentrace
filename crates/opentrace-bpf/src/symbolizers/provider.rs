@@ -25,13 +25,10 @@ impl Default for SymbolizerProvider<'_> {
 
 impl SymbolizerProvider<'_> {
     pub fn register(&mut self, source: &Source) {
-        match source {
-            Source::JavaPid { pid } => {
-                self.java = Some(JavaSymbolizer::new(*pid));
-            }
-            _ => {}
+        // clippy 规则，先single，后面有其他再修正
+        if let Source::JavaPid { pid } = source {
+            self.java = Some(JavaSymbolizer::new(*pid));
         }
-        return;
     }
 
     pub fn get_symbolizer(&self, source: &Source) -> &dyn Symbolizer {
@@ -41,16 +38,3 @@ impl SymbolizerProvider<'_> {
         }
     }
 }
-
-/* impl<'a> Symbolizer for SymbolizerProvider<'a> {
-    fn resolve(&self, input: SymbolizeInput) -> super::ResolvedSymbol<'a> {
-        let symbolizer = match input.source.backend() {
-            BackendKind::Blaze => self.providers.get(&BackendKind::Blaze),
-            BackendKind::Java => self.providers.get(&BackendKind::Java),
-        };
-        let symbolizer = symbolizer.unwrap();
-        let sym_ed = symbolizer.resolve(input);
-        sym_ed
-        todo!()
-    }
-} */

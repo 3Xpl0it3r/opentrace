@@ -62,10 +62,11 @@ impl PerfMcpToolParams {
     fn to_config(&self) -> ProfileConfig {
         let pid: i32 = if let Some(pid) = self.pid { pid } else { -1 };
         ProfileConfig {
-            pid: pid,
+            pid,
             tids: self.tid.map(|v| vec![v]),
             cpu: self.cpu,
             group_id: 0,
+            custom_btf_path: None,
         }
     }
 

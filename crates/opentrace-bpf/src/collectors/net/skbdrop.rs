@@ -3,7 +3,7 @@
 use std::mem::MaybeUninit;
 use std::{mem, slice, time::Duration};
 
-use libbpf_rs::skel::{OpenSkel as _, SkelBuilder as _};
+use libbpf_rs::skel::{OpenSkel as _, SkelBuilder};
 use libbpf_rs::{Link, MapCore, MapFlags, OpenObject, PerfBuffer, PerfBufferBuilder};
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,7 @@ use crate::collectors::Collector as CollectorTrait;
 use crate::errors::EbpfError;
 use crate::format::StreamFormatter;
 use crate::probes::Registry as ProbeRegistry;
+use crate::skeleton::bpf_object_open_opts_with_custom_btf_path;
 use crate::symbolizers::*;
 use crate::utils::net as net_utils;
 
@@ -82,6 +83,7 @@ pub struct Config {
     pub any_port: u16,
     pub src_port: u16,
     pub dst_port: u16,
+    pub custom_btf_path: Option<String>,
 }
 
 // 传递给内核态 eBPF 的配置，字段与 bpf/skbdrop.c 里的 struct config 一一对应。
@@ -140,7 +142,16 @@ impl<'a> Collector<'a> {
         config: Config,
         mut exporter: impl Exporter<Event> + 'a,
     ) -> Result<Self, EbpfError> {
-        let skel = SkbdropSkelBuilder::default().open(object)?.load()?;
+
+        let skel = match config.custom_btf_path {
+            Some(ref custom_btf_path) => SkbdropSkelBuilder::default()
+                .open_opts(
+                    bpf_object_open_opts_with_custom_btf_path(custom_btf_path)?,
+                    object,
+                )?
+                .load()?,
+            None => SkbdropSkelBuilder::default().open(object)?.load()?,
+        };
 
         skel.maps
             .config_map

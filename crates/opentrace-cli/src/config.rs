@@ -19,6 +19,7 @@ pub struct Config {
     pub netns: u32,
     //filter_express是一个简易的bpf表达式
     pub filter_express: String,
+    pub custom_btf_path: Option<String>,
 }
 
 impl Config {
@@ -49,6 +50,7 @@ impl From<Config> for SkbdropConfig {
             src_port: fcfg.src_port,
             dst_port: fcfg.dst_port,
             /* ip_version: if config.is_v6 { 6 } else { 4 }, */
+            custom_btf_path: config.custom_btf_path,
         }
     }
 }
@@ -130,7 +132,6 @@ impl Display for FilterConfig {
         write!(f, "╚══════════════════════════════════════╝")
     }
 }
-
 
 // filter语法树解析AI辅助写的
 
