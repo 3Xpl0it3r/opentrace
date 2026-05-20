@@ -11,7 +11,7 @@ use crate::bpf::perf_profile::{self, PerfProfileSkel, PerfProfileSkelBuilder};
 use crate::collector::cpu;
 use crate::collectors::Collector as CollectorTrait;
 use crate::probes::Registry as ProbeRegistry;
-use crate::skeleton::bpf_object_open_opts_with_custom_btf_path;
+use crate::skeleton::with_custom_btf_open_opts;
 use crate::types::process::ProcessInfo;
 use crate::utils::procsfs;
 use crate::utils::syscall::PerfEventFdBuilder;
@@ -118,12 +118,11 @@ impl<'a> Collector<'a> {
             }
         }
         let skel = match config.custom_btf_path {
-            Some(ref custom_btf_path) => PerfProfileSkelBuilder::default()
-                .open_opts(
-                    bpf_object_open_opts_with_custom_btf_path(custom_btf_path)?,
-                    object,
-                )?
-                .load()?,
+            Some(ref custom_btf_path) => with_custom_btf_open_opts(custom_btf_path, |open_opts| {
+                Ok(PerfProfileSkelBuilder::default()
+                    .open_opts(open_opts, object)?
+                    .load()?)
+            })?,
             None => PerfProfileSkelBuilder::default().open(object)?.load()?,
         };
 

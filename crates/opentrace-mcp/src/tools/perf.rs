@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::Arc;
 
 use rmcp::model::{CallToolResult, Content};
 use rmcp::{ErrorData, schemars};
@@ -77,14 +78,18 @@ impl PerfMcpToolParams {
 
 pub(crate) async fn tool_handler(
     params: PerfMcpToolParams,
-    probe_registry: &ProbeRegistry,
+    probe_registry: Arc<ProbeRegistry>,
 ) -> Result<CallToolResult, ErrorData> {
     let mut object = opentrace_bpf::open_object_storage();
     let (exporter, event_rx) = ProfileSimpleExporter::new();
-    let mut collector =
-        ProfileCollector::new(&mut object, probe_registry, params.to_config(), exporter)
-            .map_err(MCPError::from)
-            .map_err(ErrorData::from)?;
+    let mut collector = ProfileCollector::new(
+        &mut object,
+        probe_registry.as_ref(),
+        params.to_config(),
+        exporter,
+    )
+    .map_err(MCPError::from)
+    .map_err(ErrorData::from)?;
     collector
         .attach_probe()
         .map_err(MCPError::from)

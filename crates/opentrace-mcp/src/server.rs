@@ -10,6 +10,7 @@ use rmcp::{
         StreamableHttpService, streamable_http_server::session::local::LocalSessionManager,
     },
 };
+use std::sync::Arc;
 
 use opentrace_bpf::ProbeRegistry;
 
@@ -18,7 +19,7 @@ use crate::tools;
 #[derive(Clone)]
 pub struct OpentraceMcpServer {
     tool_router: ToolRouter<Self>,
-    probe_registry: ProbeRegistry,
+    probe_registry: Arc<ProbeRegistry>,
 }
 
 #[tool_router]
@@ -26,7 +27,7 @@ impl OpentraceMcpServer {
     pub fn new_mcp_service(probe_registry: ProbeRegistry) -> StreamableHttpService<Self> {
         let mcpsvr = Self {
             tool_router: Self::tool_router(),
-            probe_registry,
+            probe_registry: Arc::new(probe_registry),
         };
         StreamableHttpService::new(
             move || Ok(mcpsvr.clone()),
@@ -42,7 +43,7 @@ impl OpentraceMcpServer {
         &self,
         params: Parameters<tools::skbdrop::SkbdropMcpToolParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        tools::skbdrop::tool_handler(params.0, &self.probe_registry)
+        tools::skbdrop::tool_handler(params.0, Arc::clone(&self.probe_registry)).await
     }
 
     #[tool(
@@ -52,7 +53,7 @@ impl OpentraceMcpServer {
         &self,
         params: Parameters<tools::perf::PerfMcpToolParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        tools::perf::tool_handler(params.0, &self.probe_registry).await
+        tools::perf::tool_handler(params.0, Arc::clone(&self.probe_registry)).await
     }
 }
 

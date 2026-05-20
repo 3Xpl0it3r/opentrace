@@ -3,6 +3,7 @@
 use std::io::{self, Write};
 use std::marker::PhantomData;
 use std::mem;
+use std::sync::Arc;
 
 use rmcp::model::{CallToolResult, Content};
 use rmcp::{ErrorData, schemars};
@@ -10,6 +11,7 @@ use serde::ser::Error as _;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::time::Duration;
+use tokio_util::sync::CancellationToken;
 
 use opentrace_bpf::collector::Collector;
 use opentrace_bpf::collector::net::{SkbdropCollector, SkbdropConfig, SkbdropEvent};
@@ -93,10 +95,44 @@ impl Symbolizer for SymRef<'_> {
     }
 }
 
-pub(crate) fn tool_handler(
+struct CancelOnDrop(CancellationToken);
+
+impl Drop for CancelOnDrop {
+    fn drop(&mut self) {
+        self.0.cancel();
+    }
+}
+
+pub(crate) async fn tool_handler(
     params: SkbdropMcpToolParams,
-    probe_registry: &ProbeRegistry,
+    probe_registry: Arc<ProbeRegistry>,
 ) -> Result<CallToolResult, ErrorData> {
+    let cancel = CancellationToken::new();
+    let _cancel_on_drop = CancelOnDrop(cancel.clone());
+
+    let handle = tokio::task::spawn_blocking(move || {
+        run_skbdrop_blocking(params, probe_registry, Duration::from_secs(10 * 60), cancel)
+            .map_err(|err| err.to_string())
+    });
+
+    let event = handle
+        .await
+        .map_err(|err| MCPError::Other(format!("skbdrop worker failed: {err}")))
+        .and_then(|result| result.map_err(MCPError::Other))
+        .map_err(ErrorData::from)?;
+
+    Ok(match event {
+        Some(event) => CallToolResult::success(vec![Content::text(event)]),
+        None => CallToolResult::success(vec![]),
+    })
+}
+
+fn run_skbdrop_blocking(
+    params: SkbdropMcpToolParams,
+    probe_registry: Arc<ProbeRegistry>,
+    timeout: Duration,
+    cancel: CancellationToken,
+) -> Result<Option<String>, MCPError> {
     let mut open_project = opentrace_bpf::open_object_storage();
     let provider = SymbolizerProvider::default();
     let symbolizer = SymRef(provider.get_symbolizer(&Source::Kernel));
@@ -110,7 +146,7 @@ pub(crate) fn tool_handler(
 
     let mut collector = SkbdropCollector::new(
         &mut open_project,
-        probe_registry,
+        probe_registry.as_ref(),
         params.to_config()?,
         exporter,
     )
@@ -118,26 +154,26 @@ pub(crate) fn tool_handler(
     collector.attach_probe().map_err(MCPError::from)?;
 
     //  等待10分钟，如果10分钟内抓不到包就退出
-    receive_event_sync(collector, rx, Duration::from_secs(10 * 60)).map_err(|e| e.into())
+    receive_event_blocking(collector, rx, timeout, cancel)
 }
 
-pub(crate) fn receive_event_sync(
+fn receive_event_blocking(
     mut collector: impl Collector,
     mut rx: Receiver<String>,
     timeout: Duration,
-) -> Result<CallToolResult, MCPError> {
-    tokio::task::block_in_place(|| {
-        let deadline = std::time::Instant::now() + timeout;
-        loop {
-            if std::time::Instant::now() > deadline {
-                return Ok(CallToolResult::success(vec![]));
-            }
-            if let Ok(event) = rx.try_recv() {
-                return Ok(CallToolResult::success(vec![Content::text(event)]));
-            }
-            let _ = collector.poll(Duration::from_millis(100));
+    cancel: CancellationToken,
+) -> Result<Option<String>, MCPError> {
+    let deadline = std::time::Instant::now() + timeout;
+
+    while std::time::Instant::now() < deadline && !cancel.is_cancelled() {
+        if let Ok(event) = rx.try_recv() {
+            return Ok(Some(event));
         }
-    })
+
+        collector.poll(Duration::from_millis(100))?;
+    }
+
+    Ok(None)
 }
 
 pub struct McpExporter<T, F> {

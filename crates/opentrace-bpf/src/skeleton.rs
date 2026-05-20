@@ -13,17 +13,17 @@ pub fn open_object_storage() -> CollectorObject {
     MaybeUninit::uninit()
 }
 
-pub(crate) fn bpf_object_open_opts_with_custom_btf_path(
+pub(crate) fn with_custom_btf_open_opts<T>(
     btf_cus_path: &str,
-) -> Result<libbpf_sys::bpf_object_open_opts, EbpfError> {
-    let _path = CString::new(btf_cus_path)
+    open: impl FnOnce(libbpf_sys::bpf_object_open_opts) -> Result<T, EbpfError>,
+) -> Result<T, EbpfError> {
+    let path = CString::new(btf_cus_path)
         .map_err(|e| EbpfError::Other(format!("Custom Btfpath to cstring failed {}", e)))?;
-    let btf_custom_fd: *const ::std::os::raw::c_char = _path.into_raw();
 
     let mut opts = libbpf_sys::bpf_object_open_opts {
         sz: std::mem::size_of::<libbpf_sys::bpf_object_open_opts>() as libbpf_sys::size_t,
         ..Default::default()
     };
-    opts.btf_custom_path = btf_custom_fd;
-    Ok(opts)
+    opts.btf_custom_path = path.as_ptr();
+    open(opts)
 }

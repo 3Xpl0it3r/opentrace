@@ -14,7 +14,7 @@ use crate::collectors::Collector as CollectorTrait;
 use crate::errors::EbpfError;
 use crate::format::StreamFormatter;
 use crate::probes::Registry as ProbeRegistry;
-use crate::skeleton::bpf_object_open_opts_with_custom_btf_path;
+use crate::skeleton::with_custom_btf_open_opts;
 use crate::symbolizers::*;
 use crate::utils::net as net_utils;
 
@@ -142,14 +142,12 @@ impl<'a> Collector<'a> {
         config: Config,
         mut exporter: impl Exporter<Event> + 'a,
     ) -> Result<Self, EbpfError> {
-
         let skel = match config.custom_btf_path {
-            Some(ref custom_btf_path) => SkbdropSkelBuilder::default()
-                .open_opts(
-                    bpf_object_open_opts_with_custom_btf_path(custom_btf_path)?,
-                    object,
-                )?
-                .load()?,
+            Some(ref custom_btf_path) => with_custom_btf_open_opts(custom_btf_path, |open_opts| {
+                Ok(SkbdropSkelBuilder::default()
+                    .open_opts(open_opts, object)?
+                    .load()?)
+            })?,
             None => SkbdropSkelBuilder::default().open(object)?.load()?,
         };
 
