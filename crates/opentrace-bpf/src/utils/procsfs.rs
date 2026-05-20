@@ -7,7 +7,6 @@ use std::path::Path;
 use crate::EbpfError;
 
 const BTF_VMLINUX_PATH: &str = "/sys/kernel/btf/vmlinux";
-const KALLSYMS_PATH: &str = "/proc/kallsyms";
 const OS_RELEASE_PATH: &str = "/etc/os-release";
 const PROC_VERSION_PATH: &str = "/proc/version";
 

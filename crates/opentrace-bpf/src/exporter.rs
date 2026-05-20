@@ -1,7 +1,5 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
-use serde::Serialize;
-
 ///  定义了内核发送出去的event数据如何被处理
 ///  - load: 内核到用户态这部分处理
 ///  - handle: 用户态到外部生态

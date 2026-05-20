@@ -1,24 +1,19 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
+use std::mem;
 use std::mem::MaybeUninit;
 use std::os::fd::{AsRawFd, OwnedFd};
-use std::{mem, slice};
 
 use libbpf_rs::skel::{OpenSkel, SkelBuilder};
-use libbpf_rs::{Link, MapCore, MapFlags, OpenObject, PerfBuffer, PerfBufferBuilder};
-use serde::{Deserialize, Serialize};
+use libbpf_rs::{Link, OpenObject, PerfBuffer, PerfBufferBuilder};
 
-use crate::bpf::perf_profile::{self, PerfProfileSkel, PerfProfileSkelBuilder};
-use crate::collector::cpu;
+use crate::bpf::perf_profile::{self, PerfProfileSkelBuilder};
 use crate::collectors::Collector as CollectorTrait;
-use crate::probes::Registry as ProbeRegistry;
 use crate::skeleton::with_custom_btf_open_opts;
 use crate::types::process::ProcessInfo;
 use crate::utils::procsfs;
 use crate::utils::syscall::PerfEventFdBuilder;
 use crate::{EbpfError, Exporter};
 
-const CONFIG_KEY: u8 = 0;
-const TASK_COMM_LEN: usize = 16;
 //采样最大栈深度
 const SAMPLE_STACK_DEPTH: usize = 6;
 
@@ -45,8 +40,8 @@ impl Event {
     #[inline]
     pub fn stack_size(&self) -> (usize, usize) {
         (
-            Self::stack_count(self.ustack_sz, SAMPLE_STACK_DEPTH as usize),
-            Self::stack_count(self.kstack_sz, SAMPLE_STACK_DEPTH as usize),
+            Self::stack_count(self.ustack_sz, SAMPLE_STACK_DEPTH),
+            Self::stack_count(self.kstack_sz, SAMPLE_STACK_DEPTH),
         )
     }
 }
@@ -69,7 +64,7 @@ pub struct Config {
     pub custom_btf_path: Option<String>,
 }
 
-impl Config {
+/* impl Config {
     fn validate(config: &Config) -> Result<(), EbpfError> {
         if config.pid == -1 && config.cpu == -1 {
             return Err(EbpfError::ConfigErr(
@@ -78,12 +73,11 @@ impl Config {
         }
         Ok(())
     }
-}
+} */
 
 // perf profile event,
 pub struct Collector<'a> {
     skel: perf_profile::PerfProfileSkel<'a>,
-    probe_registry: &'a ProbeRegistry,
     /* perf_event_builder: PerfEventFdBuilder, */
     /// perf event fd, trans into OwnerFd, when Program is dropped, when pfd will also be dropped
     perf_buffer: PerfBuffer<'a>,
@@ -94,7 +88,6 @@ pub struct Collector<'a> {
 impl<'a> Collector<'a> {
     pub fn new(
         object: &'a mut MaybeUninit<OpenObject>,
-        probe_registry: &'a ProbeRegistry,
         config: Config,
         mut exporter: impl Exporter<Event> + 'a,
     ) -> Result<Self, EbpfError> {
@@ -110,7 +103,7 @@ impl<'a> Collector<'a> {
 
         let mut pfds = Vec::new();
         if tids.is_empty() {
-            pfd_builder.attach_tid(-1 as i32);
+            pfd_builder.attach_tid(-1_i32);
         } else {
             for tid in tids {
                 pfd_builder.attach_tid(tid as i32);
@@ -133,12 +126,10 @@ impl<'a> Collector<'a> {
             .build()?;
 
         Ok(Self {
-            perf_buffer: perf_buffer,
-            probe_registry: probe_registry,
+            perf_buffer,
             skel,
             _links: Vec::new(),
-            /* perf_event_builder: pfd_builder, */
-            pfds: pfds,
+            pfds,
         })
     }
 }
@@ -164,17 +155,20 @@ impl<'a> CollectorTrait for Collector<'a> {
 
 // 提供默认的Expoter,
 // profile的行为相对比较固定，只需要把用户/内核栈的栈地址发送给用户就可以了,没有多少的format操作
+
+pub type StackEvent = (Vec<u64>, Vec<u64>);
+
 pub struct DefaultExporter {
     // 第一个Vec是用户栈, 第二个vec是内核栈
-    event_tx: tokio::sync::mpsc::UnboundedSender<(Vec<u64>, Vec<u64>)>,
+    event_tx: tokio::sync::mpsc::UnboundedSender<StackEvent>,
 }
 
 impl DefaultExporter {
     pub fn new() -> (
         Self,
-        tokio::sync::mpsc::UnboundedReceiver<(Vec<u64>, Vec<u64>)>,
+        tokio::sync::mpsc::UnboundedReceiver<StackEvent>,
     ) {
-        let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel::<(Vec<u64>, Vec<u64>)>();
+        let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel::<StackEvent>();
         (Self { event_tx }, event_rx)
     }
 }

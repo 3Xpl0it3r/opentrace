@@ -61,16 +61,16 @@ pub(crate) struct SkbdropMcpToolParams {
 }
 
 impl SkbdropMcpToolParams {
-    fn to_config(self) -> Result<SkbdropConfig, MCPError> {
-        let mut config = SkbdropConfig::default();
-
-        config.any_addr = self.any_host.unwrap_or_default();
-        config.dst_addr = self.dst_host.unwrap_or_default();
-        config.src_addr = self.src_host.unwrap_or_default();
-
-        config.any_port = self.any_port.unwrap_or_default();
-        config.dst_port = self.dst_port.unwrap_or_default();
-        config.src_port = self.src_port.unwrap_or_default();
+    fn to_config(&self) -> Result<SkbdropConfig, MCPError> {
+        let mut config = SkbdropConfig {
+            any_addr: self.any_host.clone().unwrap_or_default(),
+            dst_addr: self.dst_host.clone().unwrap_or_default(),
+            src_addr: self.src_host.clone().unwrap_or_default(),
+            any_port: self.any_port.unwrap_or_default(),
+            dst_port: self.dst_port.unwrap_or_default(),
+            src_port: self.src_port.unwrap_or_default(),
+            ..Default::default()
+        };
 
         if let Some(ref proto) = self.ip_proto {
             config.ip_proto = ip_proto::parse(proto)?;

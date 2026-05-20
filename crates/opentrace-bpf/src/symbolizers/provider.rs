@@ -1,13 +1,10 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
-use std::borrow::Cow;
-use std::collections::HashMap;
-
 use crate::symbolizers::balzesym::BalzeSymbolizer;
 
 use super::java::JavaSymbolizer;
 use super::symbolizer::Symbolizer;
-use super::types::{BackendKind, Source, SymbolizeInput};
+use super::types::Source;
 
 pub struct SymbolizerProvider<'a> {
     balze: BalzeSymbolizer,

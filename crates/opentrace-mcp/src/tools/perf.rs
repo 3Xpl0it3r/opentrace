@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::Arc;
 
 use rmcp::model::{CallToolResult, Content};
 use rmcp::{ErrorData, schemars};
@@ -10,7 +9,6 @@ use serde::Deserialize;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::Duration;
 
-use opentrace_bpf::ProbeRegistry;
 use opentrace_bpf::collector::Collector;
 use opentrace_bpf::collector::cpu::{ProfileCollector, ProfileConfig, ProfileSimpleExporter};
 use opentrace_bpf::symbol::{Source, SymbolizeInput, Symbolizer, SymbolizerProvider};
@@ -61,7 +59,7 @@ fn default_timeout() -> u32 {
 
 impl PerfMcpToolParams {
     fn to_config(&self) -> ProfileConfig {
-        let pid: i32 = if let Some(pid) = self.pid { pid } else { -1 };
+        let pid: i32 = self.pid.unwrap_or(-1);
         ProfileConfig {
             pid,
             tids: self.tid.map(|v| vec![v]),
@@ -76,20 +74,12 @@ impl PerfMcpToolParams {
     }
 }
 
-pub(crate) async fn tool_handler(
-    params: PerfMcpToolParams,
-    probe_registry: Arc<ProbeRegistry>,
-) -> Result<CallToolResult, ErrorData> {
+pub(crate) async fn tool_handler(params: PerfMcpToolParams) -> Result<CallToolResult, ErrorData> {
     let mut object = opentrace_bpf::open_object_storage();
     let (exporter, event_rx) = ProfileSimpleExporter::new();
-    let mut collector = ProfileCollector::new(
-        &mut object,
-        probe_registry.as_ref(),
-        params.to_config(),
-        exporter,
-    )
-    .map_err(MCPError::from)
-    .map_err(ErrorData::from)?;
+    let mut collector = ProfileCollector::new(&mut object, params.to_config(), exporter)
+        .map_err(MCPError::from)
+        .map_err(ErrorData::from)?;
     collector
         .attach_probe()
         .map_err(MCPError::from)
@@ -116,7 +106,7 @@ pub(crate) async fn tool_handler(
     )]))
 }
 
-pub(crate) async fn receive_profile_events(
+async fn receive_profile_events(
     mut collector: impl Collector,
     mut rx: UnboundedReceiver<(Vec<u64>, Vec<u64>)>,
     timeout: Duration,
@@ -156,7 +146,7 @@ pub(crate) async fn receive_profile_events(
 // 存储采用B树，AI辅助写的, 模型gpt5.5
 // 里面主要存储stack信息聚合统计， 打印到终端
 #[derive(Default)]
-struct StacksStorage {
+pub(crate) struct StacksStorage {
     root: Stacknode,
 }
 
@@ -207,7 +197,8 @@ impl IntoIterator for StacksStorage {
 }
 
 // Stacknode[#TODO] (shoule add some comments )
-struct Stacknode {
+#[derive(Default)]
+pub(crate) struct Stacknode {
     is_ustack: bool,
     stack_addr: u64,
     // 出现次数
@@ -215,18 +206,6 @@ struct Stacknode {
     // 函数名
     func_name: Option<String>,
     children: HashMap<u64, Stacknode>, /* children: BTreeMap<(bool, u64), Stacknode>, */
-}
-
-impl Default for Stacknode {
-    fn default() -> Self {
-        Self {
-            stack_addr: 0,
-            account: 0,
-            is_ustack: false,
-            func_name: None,
-            children: HashMap::new(),
-        }
-    }
 }
 
 impl Stacknode {
@@ -313,11 +292,10 @@ impl Stacknode {
         parent_total: u32,
         depth: usize,
     ) -> fmt::Result {
-        let percent = if parent_total == 0 {
-            0
-        } else {
-            self.account * 100 / parent_total
-        };
+        let percent = self.account
+            .checked_mul(100)
+            .and_then(|x| x.checked_div(parent_total))
+            .unwrap_or(0);
         let stack_kind = if self.is_ustack { "[u]" } else { "[k]" };
         let stack_name = self
             .func_name

@@ -9,4 +9,4 @@ mod java;
 
 pub use provider::SymbolizerProvider;
 pub use symbolizer::Symbolizer;
-pub use types::{BackendKind, ResolvedSymbol, Source, SymbolizeInput};
+pub use types::{ResolvedSymbol, Source, SymbolizeInput};

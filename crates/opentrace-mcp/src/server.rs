@@ -53,7 +53,7 @@ impl OpentraceMcpServer {
         &self,
         params: Parameters<tools::perf::PerfMcpToolParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        tools::perf::tool_handler(params.0, Arc::clone(&self.probe_registry)).await
+        tools::perf::tool_handler(params.0).await
     }
 }
 

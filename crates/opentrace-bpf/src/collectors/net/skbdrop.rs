@@ -204,9 +204,6 @@ pub struct DefaultFormatter<'a> {
 
 impl<'a> StreamFormatter<Event> for DefaultFormatter<'a> {
     fn format<W: std::io::Write>(&self, w: &mut W, event: &Event) -> Result<(), std::io::Error> {
-        use std::io::Write as _;
-
-        let source = Source::Kernel;
         let sport = u16::from_be(event.l4_info.sport);
         let dport = u16::from_be(event.l4_info.dport);
 
@@ -235,8 +232,8 @@ impl<'a> StreamFormatter<Event> for DefaultFormatter<'a> {
                 writeln!(
                     w,
                     " {:<22} {:<22}",
-                    format_args!("{}:{}", "0.0.0.0", sport),
-                    format_args!("{}:{}", "0.0.0.0", dport),
+                    format!("{}:{}", "0.0.0.0", sport),
+                    format!("{}:{}", "0.0.0.0", dport),
                 )?;
             }
         }

@@ -5,8 +5,7 @@ use std::time::Duration;
 use opentrace_bpf::ProbeRegistry;
 use opentrace_bpf::collector::Collector;
 use opentrace_bpf::collector::net::{
-    SkbdropCollector, SkbdropConfig, SkbdropConsoleExpoter, SkbdropEvent,
-    SkbdropEventDefaultFormatter,
+    SkbdropCollector, SkbdropConsoleExpoter,
 };
 use opentrace_bpf::symbol::{self, Source};
 
@@ -49,6 +48,4 @@ pub fn run_as_skbdrop(
     loop {
         let _ = collector.poll(Duration::from_millis(100));
     }
-
-    Ok(())
 }

@@ -23,7 +23,7 @@ pub struct CliOptsCtx {
 impl From<&CliOptions> for CliOptsCtx {
     fn from(value: &CliOptions) -> Self {
         Self {
-            custom_btf_path: value.custom_btf_path.clone().into(),
+            custom_btf_path: value.custom_btf_path.clone(),
         }
     }
 }
@@ -101,10 +101,8 @@ pub mod trace {
 
 pub mod perf {
     use clap::ValueEnum;
-    use clap::{Args, Parser};
+    use clap::Args;
     use opentrace_bpf::collector::cpu::ProfileConfig;
-
-    use crate::errors::CliError;
 
     use super::CliOptsCtx;
 
@@ -145,9 +143,9 @@ pub mod perf {
 
     impl ProfileOptions {
         pub fn to_config(self, ctx: CliOptsCtx) -> ProfileConfig {
-            let pid: i32 = if let Some(pid) = self.pid { pid } else { -1 };
+            let pid: i32 = self.pid.unwrap_or(-1);
             ProfileConfig {
-                pid: pid,
+                pid,
                 tids: self.tid.map(|v| vec![v]),
                 cpu: self.cpu,
                 group_id: self.group_id,

@@ -1,4 +1,4 @@
-use super::types::{ResolvedSymbol, Source, SymbolizeInput};
+use super::types::{ResolvedSymbol, SymbolizeInput};
 
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 //

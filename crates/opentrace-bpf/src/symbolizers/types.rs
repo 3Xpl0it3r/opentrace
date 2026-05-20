@@ -20,7 +20,7 @@ impl Source<'_> {
     pub fn backend(&self) -> BackendKind {
         match self {
             Source::CPid { pid: _ } | Source::ELf { bin: _ } | Source::Kernel => BackendKind::Blaze,
-            Source::JavaPid { pid } => BackendKind::Java,
+            Source::JavaPid { pid: _ } => BackendKind::Java,
         }
     }
 

@@ -209,10 +209,9 @@ fn generate_vmlinux_header_from_btf(os_info: &HostOsInfo) -> io::Result<()> {
     if status.success() {
         Ok(())
     } else {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!("bpftool failed with status: {status}"),
-        ))
+        Err(io::Error::other(format!(
+            "bpftool failed with status: {status}"
+        )))
     }
 }
 

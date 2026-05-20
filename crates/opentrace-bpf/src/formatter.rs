@@ -4,10 +4,6 @@
 
 use std::io::{self, Write};
 
-use serde::Serialize;
-
-use crate::symbolizers::Symbolizer;
-
 pub trait StreamFormatter<T> {
     fn format<W: Write>(&self, w: &mut W, args: &T) -> io::Result<()>;
 }

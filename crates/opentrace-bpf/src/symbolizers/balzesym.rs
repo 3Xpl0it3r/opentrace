@@ -17,11 +17,11 @@ impl super::Symbolizer for BalzeSymbolizer {
             Source::CPid { pid } => {
                 symbolize::source::Source::from(symbolize::source::Process::new(pid.into()))
             }
-            Source::ELf { bin } => todo!(),
+            Source::ELf { bin: _ } => todo!(),
             Source::Kernel => {
                 symbolize::source::Source::Kernel(symbolize::source::Kernel::default())
             }
-            Source::JavaPid { pid } => todo!(),
+            Source::JavaPid { pid: _ } => todo!(),
         };
         let input = symbolize::Input::AbsAddr(addr);
         let sym_ed = self.symbolizer.symbolize_single(&source, input);

@@ -1,7 +1,5 @@
 #[cfg(target_arch = "x86_64")]
-use std::ffi::c_int;
 use std::ffi::{c_long, c_uint};
-use std::mem;
 use std::os::fd::{FromRawFd as _, OwnedFd, RawFd};
 
 use libbpf_rs::libbpf_sys::perf_event_attr;
@@ -24,9 +22,7 @@ pub const SYS_PERF_EVENT_OPEN: c_int = 241;
 #[cfg(all(target_arch = "x86_64", target_pointer_width = "32"))]
 pub const SYS_PERF_EVENT_OPEN: c_int = 298 | 0x40000000;
 
-const PERF_TYPE_HARDWARE: c_uint = 0;
 const PERF_TYPE_SOFTWARE: c_uint = 1;
-const PERF_COUNT_HW_CPU_CYCLES: u64 = 0;
 const PERF_COUNT_SW_CPU_CLOCK: u64 = 0;
 /* const DEFAULT_SAMPLE_PERIOD:u64 = 1_000_000; // 每1/ms采样一次 */
 const DEFAULT_SAMPLE_PERIOD: u64 = 10000;
@@ -57,9 +53,9 @@ impl PerfEventFdBuilder {
     pub fn attach_cpu(&mut self, cpu: i32) {
         self.cpu = cpu
     }
-    pub fn attach_groupid(&mut self, group_id: i32) {
+    /* pub fn attach_groupid(&mut self, group_id: i32) {
         self.group_id = group_id
-    }
+    } */
 
     pub fn build(&self) -> Result<OwnedFd, EbpfError> {
         let fd = unsafe {
@@ -98,7 +94,7 @@ impl Default for PerfEventFdBuilder {
         attrs.set_exclude_kernel(1); // don't count time in kernel
         attrs.set_exclude_hv(1); // don't count time in hypervisor
         Self {
-            attrs: attrs,
+            attrs,
             cpu: 0,
             tid: 0,
             group_id: -1,

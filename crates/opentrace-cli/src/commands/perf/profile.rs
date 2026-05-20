@@ -5,12 +5,9 @@ use std::collections::HashMap;
 use std::fmt;
 use std::time::Duration;
 
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
-
 use opentrace_bpf::collector::Collector;
-use opentrace_bpf::collector::cpu::{ProfileCollector, ProfileEvent, ProfileSimpleExporter};
+use opentrace_bpf::collector::cpu::{ProfileCollector, ProfileSimpleExporter};
 use opentrace_bpf::symbol::{Source, SymbolizeInput, Symbolizer, SymbolizerProvider};
-use opentrace_bpf::{Exporter, ProbeRegistry};
 
 use crate::errors::CliError;
 use crate::options::CliOptsCtx;
@@ -21,7 +18,6 @@ const KSTACK_FLAGS: u64 = 0xFFFFFFFF;
 pub async fn run_as_profile(
     ctx: CliOptsCtx,
     options: ProfileOptions,
-    registry: &mut ProbeRegistry,
     object: &mut opentrace_bpf::CollectorObject,
 ) -> Result<(), CliError> {
     let mut symbolizer_provider = SymbolizerProvider::default();
@@ -38,7 +34,7 @@ pub async fn run_as_profile(
     let symbolizer = symbolizer_provider.get_symbolizer(&source);
 
     let (exporter, mut event_rx) = ProfileSimpleExporter::new();
-    let mut collector = ProfileCollector::new(object, registry, options.to_config(ctx), exporter)?;
+    let mut collector = ProfileCollector::new(object, options.to_config(ctx), exporter)?;
     collector.attach_probe()?;
 
     let mut pre_handle_stack_storage = StacksStorage::default();
@@ -62,7 +58,7 @@ pub async fn run_as_profile(
                 if let Some(event) = event {
                     let mut stack = event.0;
                     let mut kstack = event.1;
-                    if kstack.len()!= 0 {
+                    if !kstack.is_empty() {
                         stack.push(KSTACK_FLAGS);
                         stack.append(&mut kstack);
                     }
@@ -146,6 +142,7 @@ impl IntoIterator for StacksStorage {
 }
 
 // Stacknode[#TODO] (shoule add some comments )
+#[derive(Default)]
 struct Stacknode {
     is_ustack: bool,
     stack_addr: u64,
@@ -154,18 +151,6 @@ struct Stacknode {
     // 函数名
     func_name: Option<String>,
     children: HashMap<u64, Stacknode>,
-}
-
-impl Default for Stacknode {
-    fn default() -> Self {
-        Self {
-            stack_addr: 0,
-            account: 0,
-            is_ustack: false,
-            func_name: None,
-            children: HashMap::new(),
-        }
-    }
 }
 
 impl Stacknode {
@@ -277,11 +262,10 @@ impl Stacknode {
     }
 
     fn line_header(&self, parent_total: u32, depth: usize) -> String {
-        let percent = if parent_total == 0 {
-            0
-        } else {
-            self.account * 100 / parent_total
-        };
+        let percent = self.account
+            .checked_mul(100)
+            .and_then(|x| x.checked_div(parent_total))
+            .unwrap_or(0);
 
         format!(
             "{}L{}_{}_({}%)",

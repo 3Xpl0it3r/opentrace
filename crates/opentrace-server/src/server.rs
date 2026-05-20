@@ -35,7 +35,7 @@ impl<T: rmcp::ServerHandler> GenericServer<T> {
             .route(HEALTH_ENDPOINT, get(health_handler))
             .nest_service(MCP_ENDPOINT, self.mcp.clone());
 
-        axum::serve(listener, router).await;
+        let _ = axum::serve(listener, router).await;
     }
 
     #[inline]

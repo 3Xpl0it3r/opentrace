@@ -88,7 +88,7 @@ impl fmt::Display for AddrV4 {
         write!(
             f,
             "{}.{}.{}.{}",
-            (self.0 >> 0) & 0xFF,
+            self.0 & 0xFF,
             (self.0 >> 8) & 0xFF,
             (self.0 >> 16) & 0xFF,
             (self.0 >> 24) & 0xFF
@@ -104,11 +104,11 @@ impl fmt::Display for AddrV6 {
             (self.upper >> 48) & 0xFFFF,
             (self.upper >> 32) & 0xFFFF,
             (self.upper >> 16) & 0xFFFF,
-            (self.upper >> 0) & 0xFFFF,
+            self.upper & 0xFFFF,
             (self.lower >> 48) & 0xFFFF,
             (self.lower >> 32) & 0xFFFF,
             (self.lower >> 16) & 0xFFFF,
-            (self.lower >> 0) & 0xFFFF,
+            self.lower & 0xFFFF,
         )
     }
 }
@@ -143,7 +143,7 @@ impl Serialize for L2Info {
 }
 
 impl<'de> Deserialize<'de> for L2Info {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -170,7 +170,7 @@ impl Serialize for L3Info {
 }
 
 impl<'de> Deserialize<'de> for L3Info {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -191,7 +191,7 @@ impl Serialize for L4Info {
 }
 
 impl<'de> Deserialize<'de> for L4Info {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {

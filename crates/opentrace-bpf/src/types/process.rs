@@ -28,7 +28,7 @@ impl Serialize for ProcessInfo {
 }
 
 impl<'de> Deserialize<'de> for ProcessInfo {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
