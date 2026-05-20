@@ -1,3 +1,10 @@
+![CI](https://img.shields.io/github/actions/workflow/status/3Xpl0it3r/opentrace/ci.yaml?label=CI)
+![Docker](https://img.shields.io/badge/Docker-Pending-lightgrey)
+![Security Audit](https://github.com/3Xpl0it3r/opentrace/actions/workflows/audit.yaml/badge.svg)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/m/3Xpl0it3r/opentrace)
+![GitHub last commit](https://img.shields.io/github/last-commit/3Xpl0it3r/opentrace)
+![Featured｜HelloGitHub](https://img.shields.io/badge/HelloGitHub-Featured-ff69b4)
+
 ## 运行展示
 
 ![llvm-call-example](images/llvm-call-example.png)
