@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [ "master" ]
+    paths-ignore:
+      - '**.md' 
+      - 'images/**'
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_MIN: "1.95.0"
+
+jobs:
+  # 代码格式与风格检查
+  fmt:
+    name: Format & Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt, clippy
+          
+      - name: Install eBPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libelf-dev zlib1g-dev libbpf-dev
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+        
+      - name: Run Clippy (warnings as errors)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  test:
+    name: Test (eBPF required)
+    runs-on: ubuntu-24.04  # 使用较新的内核版本
+    continue-on-error: false
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_MIN }}
+          
+      - name: Install eBPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm bpftool libelf-dev zlib1g-dev linux-tools-common linux-tools-generic
+          
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Build project
+        run: cargo build --workspace --verbose
+        
+      - name: Run unit tests
+        run: cargo test --workspace --lib --bins --tests -- --nocapture
+
