@@ -262,7 +262,8 @@ impl Stacknode {
     }
 
     fn line_header(&self, parent_total: u32, depth: usize) -> String {
-        let percent = self.account
+        let percent = self
+            .account
             .checked_mul(100)
             .and_then(|x| x.checked_div(parent_total))
             .unwrap_or(0);

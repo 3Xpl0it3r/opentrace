@@ -292,7 +292,8 @@ impl Stacknode {
         parent_total: u32,
         depth: usize,
     ) -> fmt::Result {
-        let percent = self.account
+        let percent = self
+            .account
             .checked_mul(100)
             .and_then(|x| x.checked_div(parent_total))
             .unwrap_or(0);

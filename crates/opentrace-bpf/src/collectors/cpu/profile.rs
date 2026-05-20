@@ -164,10 +164,7 @@ pub struct DefaultExporter {
 }
 
 impl DefaultExporter {
-    pub fn new() -> (
-        Self,
-        tokio::sync::mpsc::UnboundedReceiver<StackEvent>,
-    ) {
+    pub fn new() -> (Self, tokio::sync::mpsc::UnboundedReceiver<StackEvent>) {
         let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel::<StackEvent>();
         (Self { event_tx }, event_rx)
     }

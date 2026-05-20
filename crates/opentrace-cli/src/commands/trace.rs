@@ -4,9 +4,7 @@ use std::time::Duration;
 
 use opentrace_bpf::ProbeRegistry;
 use opentrace_bpf::collector::Collector;
-use opentrace_bpf::collector::net::{
-    SkbdropCollector, SkbdropConsoleExpoter,
-};
+use opentrace_bpf::collector::net::{SkbdropCollector, SkbdropConsoleExpoter};
 use opentrace_bpf::symbol::{self, Source};
 
 use crate::errors::CliError;

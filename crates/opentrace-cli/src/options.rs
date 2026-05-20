@@ -100,8 +100,8 @@ pub mod trace {
 }
 
 pub mod perf {
-    use clap::ValueEnum;
     use clap::Args;
+    use clap::ValueEnum;
     use opentrace_bpf::collector::cpu::ProfileConfig;
 
     use super::CliOptsCtx;
