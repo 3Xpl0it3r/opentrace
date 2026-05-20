@@ -96,7 +96,6 @@ impl fmt::Display for AddrV4 {
     }
 }
 
-
 impl fmt::Display for AddrV6 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -113,7 +112,6 @@ impl fmt::Display for AddrV6 {
         )
     }
 }
-
 
 impl Serialize for AddrV4 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

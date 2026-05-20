@@ -56,7 +56,6 @@ impl<'a> super::Symbolizer for JavaSymbolizer<'a> {
             _ => super::ResolvedSymbol::unknown(input.addr, 0),
         }
     }
-
 }
 
 fn symbol_contains(symbol: &ResolvedSymbol<'_>, size: u64, addr: u64) -> bool {
