@@ -9,8 +9,7 @@ use libbpf_rs::{Link, OpenObject, PerfBuffer, PerfBufferBuilder};
 use crate::bpf::perf_profile::{self, PerfProfileSkelBuilder};
 use crate::collectors::Collector as CollectorTrait;
 use crate::skeleton::with_custom_btf_open_opts;
-use crate::types::process::ProcessInfo;
-use crate::utils::procsfs;
+use crate::utils::procfs;
 use crate::utils::syscall::PerfEventFdBuilder;
 use crate::{EbpfError, Exporter};
 
@@ -20,7 +19,7 @@ const SAMPLE_STACK_DEPTH: usize = 6;
 #[derive(Clone)]
 #[repr(C)]
 pub struct Event {
-    process_info: ProcessInfo,
+    /* process_info: ProcessInfo, */
     pub kstack: [u64; 16],
     pub ustack: [u64; 16],
     pub kstack_sz: i64,
@@ -96,7 +95,7 @@ impl<'a> Collector<'a> {
         pfd_builder.attach_cpu(config.cpu);
 
         let tids = if config.pid >= 0 {
-            procsfs::thread_ids(config.pid as u32).unwrap_or(vec![])
+            procfs::thread_ids(config.pid as u32).unwrap_or(vec![])
         } else {
             vec![]
         };

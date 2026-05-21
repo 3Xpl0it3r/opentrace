@@ -1,4 +1,5 @@
 #include "vmlinux.h"
+#include "include/common.h"
 #include "libbpf/src/bpf_endian.h"
 #include "libbpf/src/bpf_helpers.h"
 #include "libbpf/src/bpf_tracing.h"
@@ -49,33 +50,14 @@ struct sock_owner_t {
   u16 ip_proto;
 };
 
-static const u8 config_key = 0;
-static const struct perf_event_t zero_event = {};
-static const u32 event_heap_key = 0;
-
 // 存放config的hashmap
 BPF_HASH_MAP_DEF(config_map, u8, struct config);
-
-BPF_PERF_EVENT_ARRAY_DEF(perf_events);
 
 // event_storage 是 percpuarray类型的map,
 // 由于ebpf有栈大小限制,perf_event_t大结构体存放在map上面
 BPF_PERCPU_ARRAY_DEF(event_heap, struct perf_event_t, 1);
 
-// 存放套接字相关连的信息，出去报文的skb 通过获取关联socket来获取它正确的
-// command信息
-BPF_HASH_MAP_DEF(sock_owner_map, u64 /*struct sock的地址*/,
-                 struct sock_owner_t);
-
-static __always_inline struct sock_owner_t *
-lookup_egress_sock_ref(struct sk_buff *skb) {
-  struct sock *sk = (struct sock *)skb_sock(skb);
-  if (!sk)
-    return NULL;
-  u64 key = (u64)sk;
-  struct sock_owner_t *owner = bpf_map_lookup_elem(&sock_owner_map, &key);
-  return owner;
-}
+BPF_PERF_EVENT_ARRAY_DEF(perf_events);
 
 // 基于l2 过滤
 static __always_inline bool l2_filter(struct l2_info_t *l2,
@@ -160,24 +142,27 @@ SEC("kprobe/kfree_skb")
 int kp_kfree_skb(struct pt_regs *ctx) {
   struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM1(ctx);
   struct perf_event_t *event = NULL;
+  u8 config_key = 0;
+
   struct config *cfg =
       (struct config *)bpf_map_lookup_elem(&config_map, &config_key);
 
   if (!skb || !cfg)
     return BPF_OK;
 
+  u32 event_heap_key = 0;
   event = bpf_map_lookup_elem(&event_heap, &event_heap_key);
   if (!event)
     return BPF_OK;
+  event->drop_reason = 0;
+  event->stack_size = 0;
+  my_memset(event->stack, 0, sizeof(event->stack));
 
   if (!do_trace_ingress_skbdrop(ctx, cfg, skb, event))
     return BPF_OK;
 
   bpf_perf_event_output(ctx, &perf_events, BPF_F_CURRENT_CPU, event,
                         sizeof(*event));
-  // 防止脏数据,由于结构体过大使用`__builtin_memset__`初始化会被ebpf
-  // 验证器给拒绝掉,所以这里使用一个归零数据来做初始化
-  bpf_map_update_elem(&event_heap, &event_heap_key, &zero_event, BPF_EXIST);
 
   return BPF_OK;
 }

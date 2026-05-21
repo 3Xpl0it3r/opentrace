@@ -4,7 +4,6 @@
 #include "libbpf/src/bpf_helpers.h"
 
 #include "include/ebpf_map.h"
-#include "include/process.h"
 
 #define PERF_MAX_STACK_DEPTH 16
 
@@ -13,7 +12,7 @@
 
 // 发送给用户态的event
 struct perf_event_t {
-  struct process_info_t process_info;
+  // struct process_info_t process_info;
   u64 kstack[PERF_MAX_STACK_DEPTH];
   u64 ustack[PERF_MAX_STACK_DEPTH];
   s64 kstack_sz;
@@ -21,11 +20,6 @@ struct perf_event_t {
   u64 timestamp;
   u32 cpu_id;
 };
-
-// static const u8 config_key = 0;
-static const u32 event_heap_key = 0;
-
-// BPF_STACK_TRACE_DEF(stack_traces);
 
 BPF_PERF_EVENT_ARRAY_DEF(perf_events);
 
@@ -35,11 +29,10 @@ BPF_PERCPU_ARRAY_DEF(event_heap, struct perf_event_t, 1);
 SEC("perf_event")
 int perf_profile_samples(void *ctx) {
   struct perf_event_t *event = NULL;
+  u32 event_heap_key = 0;
   event = bpf_map_lookup_elem(&event_heap, &event_heap_key);
   if (!event)
     return BPF_OK;
-
-  set_process_info(&event->process_info);
 
   event->kstack_sz =
       bpf_get_stack(ctx, event->kstack, sizeof(event->kstack), 0);

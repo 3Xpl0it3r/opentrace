@@ -34,7 +34,13 @@ jobs:
       - name: Install eBPF dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang libelf-dev zlib1g-dev libbpf-dev
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            libelf-dev \
+            zlib1g-dev \
+            libbpf-dev \
+            pkg-config
 
       - name: Check formatting
         run: cargo fmt --all -- --check
