@@ -29,7 +29,7 @@ pub struct Event {
     pub l2_info: L2Info,
     pub l3_info: L3Info,
     pub l4_info: L4Info,
-    pub pkt_info: PktInfo,
+    /* pub pkt_info: PktInfo, */
     pub stack_size: i64,
     pub stack: [u64; 16],
     drop_reason: u8,

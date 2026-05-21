@@ -1,9 +1,9 @@
 #include "vmlinux.h"
-#include "include/common.h"
 #include "libbpf/src/bpf_endian.h"
 #include "libbpf/src/bpf_helpers.h"
 #include "libbpf/src/bpf_tracing.h"
 
+#include "include/common.h"
 #include "include/debug.h"
 #include "include/ebpf_map.h"
 #include "include/net_filter.h"
@@ -34,7 +34,7 @@ struct perf_event_t {
   struct l2_info_t l2_info;
   struct l3_info_t l3_info;
   struct l4_info_t l4_info;
-  struct pkt_info_t pkt_info;
+  // struct pkt_info_t pkt_info;
   // struct process_info_t process_info;
 
   s64 stack_size;
@@ -81,9 +81,6 @@ static __always_inline bool l3_filter(struct l3_info_t *l3, struct config *cfg,
     return false;
   if (!filter_match_exact_ip(cfg->src_addr, l3->saddr, ipvs))
     return false;
-
-  if (ipaddr_is_zero(cfg->dst_addr) && ipaddr_is_zero(cfg->src_addr))
-    return true;
 
   return true;
 }
@@ -143,6 +140,7 @@ int kp_kfree_skb(struct pt_regs *ctx) {
   struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM1(ctx);
   struct perf_event_t *event = NULL;
   u8 config_key = 0;
+  u32 event_heap_key = 0;
 
   struct config *cfg =
       (struct config *)bpf_map_lookup_elem(&config_map, &config_key);
@@ -150,13 +148,10 @@ int kp_kfree_skb(struct pt_regs *ctx) {
   if (!skb || !cfg)
     return BPF_OK;
 
-  u32 event_heap_key = 0;
   event = bpf_map_lookup_elem(&event_heap, &event_heap_key);
   if (!event)
     return BPF_OK;
   event->drop_reason = 0;
-  event->stack_size = 0;
-  my_memset(event->stack, 0, sizeof(event->stack));
 
   if (!do_trace_ingress_skbdrop(ctx, cfg, skb, event))
     return BPF_OK;

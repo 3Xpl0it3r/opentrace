@@ -1,6 +1,4 @@
-#include "include/net_types.h"
 #include "vmlinux.h"
-
 #include "libbpf/src/bpf_helpers.h"
 
 #include "include/ebpf_map.h"

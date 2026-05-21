@@ -44,7 +44,8 @@ static __always_inline void my_memcpy(void *dst, const void *src,
   __builtin_memcpy(dst, src, size);
 }
 
-static __always_inline void my_memset(void *dst, int data, unsigned long size) {
+// 用来清零操作
+static __always_inline void my_memset(void *dst, unsigned long size) {
   __builtin_memset(dst, 0, size);
 }
 
