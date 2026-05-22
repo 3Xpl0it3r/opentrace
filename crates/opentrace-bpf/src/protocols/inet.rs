@@ -30,38 +30,44 @@ pub const RAW: u16 = 255;
 pub const MPTCP: u16 = 262;
 pub const MAX: u16 = 263;
 
+/// 协议号到名字的查表，按枚举顺序排列。
+const PROTO_NAMES: &[(u16, &str)] = &[
+    (IP, "IPPROTO_IP"),
+    (ICMP, "IPPROTO_ICMP"),
+    (IGMP, "IPPROTO_IGMP"),
+    (IPIP, "IPPROTO_IPIP"),
+    (TCP, "IPPROTO_TCP"),
+    (EGP, "IPPROTO_EGP"),
+    (PUP, "IPPROTO_PUP"),
+    (UDP, "IPPROTO_UDP"),
+    (IDP, "IPPROTO_IDP"),
+    (TP, "IPPROTO_TP"),
+    (DCCP, "IPPROTO_DCCP"),
+    (IPV6, "IPPROTO_IPV6"),
+    (RSVP, "IPPROTO_RSVP"),
+    (GRE, "IPPROTO_GRE"),
+    (ESP, "IPPROTO_ESP"),
+    (AH, "IPPROTO_AH"),
+    (MTP, "IPPROTO_MTP"),
+    (BEETPH, "IPPROTO_BEETPH"),
+    (ENCAP, "IPPROTO_ENCAP"),
+    (PIM, "IPPROTO_PIM"),
+    (COMP, "IPPROTO_COMP"),
+    (SCTP, "IPPROTO_SCTP"),
+    (UDPLITE, "IPPROTO_UDPLITE"),
+    (MPLS, "IPPROTO_MPLS"),
+    (ETHERNET, "IPPROTO_ETHERNET"),
+    (RAW, "IPPROTO_RAW"),
+    (MPTCP, "IPPROTO_MPTCP"),
+    (MAX, "IPPROTO_MAX"),
+];
+
 pub fn to_str(n_proto: u16) -> &'static str {
-    match n_proto {
-        IP => "IPPROTO_IP",
-        ICMP => "IPPROTO_ICMP",
-        IGMP => "IPPROTO_IGMP",
-        IPIP => "IPPROTO_IPIP",
-        TCP => "IPPROTO_TCP",
-        EGP => "IPPROTO_EGP",
-        PUP => "IPPROTO_PUP",
-        UDP => "IPPROTO_UDP",
-        IDP => "IPPROTO_IDP",
-        TP => "IPPROTO_TP",
-        DCCP => "IPPROTO_DCCP",
-        IPV6 => "IPPROTO_IPV6",
-        RSVP => "IPPROTO_RSVP",
-        GRE => "IPPROTO_GRE",
-        ESP => "IPPROTO_ESP",
-        AH => "IPPROTO_AH",
-        MTP => "IPPROTO_MTP",
-        BEETPH => "IPPROTO_BEETPH",
-        ENCAP => "IPPROTO_ENCAP",
-        PIM => "IPPROTO_PIM",
-        COMP => "IPPROTO_COMP",
-        SCTP => "IPPROTO_SCTP",
-        UDPLITE => "IPPROTO_UDPLITE",
-        MPLS => "IPPROTO_MPLS",
-        ETHERNET => "IPPROTO_ETHERNET",
-        RAW => "IPPROTO_RAW",
-        MPTCP => "IPPROTO_MPTCP",
-        MAX => "IPPROTO_MAX",
-        _ => "UNKNOWN",
-    }
+    PROTO_NAMES
+        .iter()
+        .find(|(k, _)| *k == n_proto)
+        .map(|(_, v)| *v)
+        .unwrap_or("UNKNOWN")
 }
 
 pub fn parse(proto_name: &str) -> Result<u16, EbpfError> {

@@ -136,144 +136,135 @@ impl Display for FilterConfig {
 // filter语法树解析AI辅助写的
 
 fn parse_filter_to_config(expr: String) -> Result<FilterConfig, CliError> {
-    let mut config = FilterConfig::default();
-
+    let mut cfg = FilterConfig::default();
     if expr.trim().is_empty() {
-        return Ok(config);
+        return Ok(cfg);
     }
 
-    let tokens: Vec<&str> = expr.split_whitespace().collect();
-    let mut i = 0;
-    let mut has_tcp_udp = false;
-    let mut has_port = false;
-    let mut has_icmp = false;
+    let mut flags = ParseFlags::default();
+    let mut tokens = expr.split_whitespace();
+    while let Some(tok) = tokens.next() {
+        apply_token(tok, &mut tokens, &mut cfg, &mut flags);
+    }
 
-    while i < tokens.len() {
-        let token = tokens[i];
+    apply_defaults(&mut cfg, &flags)?;
+    Ok(cfg)
+}
 
-        match token {
-            "and" => {
-                i += 1;
-                continue;
-            }
-            "tcp" => {
-                config.ip_proto = ip_proto::TCP;
-                has_tcp_udp = true;
-                i += 1;
-            }
-            "udp" => {
-                config.ip_proto = ip_proto::UDP;
-                has_tcp_udp = true;
-                i += 1;
-            }
-            "icmp" => {
-                config.ip_proto = ip_proto::ICMP;
-                has_icmp = true;
-                i += 1;
-            }
-            "host" => {
-                if i + 1 < tokens.len() {
-                    config.any_ip = tokens[i + 1].into();
-                    i += 2;
-                } else {
-                    i += 1;
-                }
-            }
-            "src" => {
-                if i + 1 < tokens.len() {
-                    match tokens[i + 1] {
-                        "host" => {
-                            if i + 2 < tokens.len() {
-                                config.src_ip = tokens[i + 2].into();
-                                i += 3;
-                            } else {
-                                i += 2;
-                            }
-                        }
-                        "port" => {
-                            if i + 2 < tokens.len() {
-                                let port_str = tokens[i + 2];
-                                if let Ok(port) = port_str.parse::<u16>() {
-                                    config.src_port = port;
-                                }
-                                has_port = true;
-                                i += 3;
-                            } else {
-                                i += 2;
-                            }
-                        }
-                        _ => i += 1,
-                    }
-                } else {
-                    i += 1;
-                }
-            }
-            "dst" => {
-                if i + 1 < tokens.len() {
-                    match tokens[i + 1] {
-                        "host" => {
-                            if i + 2 < tokens.len() {
-                                config.dst_ip = tokens[i + 2].into();
-                                i += 3;
-                            } else {
-                                i += 2;
-                            }
-                        }
-                        "port" => {
-                            if i + 2 < tokens.len() {
-                                let port_str = tokens[i + 2];
-                                if let Ok(port) = port_str.parse::<u16>() {
-                                    config.dst_port = port;
-                                }
-                                has_port = true;
-                                i += 3;
-                            } else {
-                                i += 2;
-                            }
-                        }
-                        _ => i += 1,
-                    }
-                } else {
-                    i += 1;
-                }
-            }
-            "port" => {
-                if i + 1 < tokens.len() {
-                    let port_str = tokens[i + 1];
-                    if let Ok(port) = port_str.parse::<u16>() {
-                        config.any_port = port;
-                    }
-                    has_port = true;
-                    i += 2;
-                } else {
-                    i += 1;
-                }
-            }
-            _ => i += 1,
+/// 单个 token 的分发：根据 keyword 决定如何更新 cfg / flags，
+/// 必要时从 `tokens` 取后续参数（host/port 等）。未识别的 token 静默跳过。
+fn apply_token<'a, I: Iterator<Item = &'a str>>(
+    tok: &str,
+    tokens: &mut I,
+    cfg: &mut FilterConfig,
+    flags: &mut ParseFlags,
+) {
+    match tok {
+        "and" => {}
+        "tcp" => {
+            cfg.ip_proto = ip_proto::TCP;
+            flags.has_tcp_udp = true;
+        }
+        "udp" => {
+            cfg.ip_proto = ip_proto::UDP;
+            flags.has_tcp_udp = true;
+        }
+        "icmp" => {
+            cfg.ip_proto = ip_proto::ICMP;
+            flags.has_icmp = true;
+        }
+        "host" => take_ip(tokens, &mut cfg.any_ip),
+        "port" => {
+            take_port(tokens, &mut cfg.any_port);
+            flags.has_port = true;
+        }
+        "src" => parse_direction(tokens, &mut cfg.src_ip, &mut cfg.src_port, &mut flags.has_port),
+        "dst" => parse_direction(tokens, &mut cfg.dst_ip, &mut cfg.dst_port, &mut flags.has_port),
+        _ => {}
+    }
+}
+
+#[derive(Default)]
+struct ParseFlags {
+    has_tcp_udp: bool,
+    has_port: bool,
+    has_icmp: bool,
+}
+
+fn take_ip<'a, I: Iterator<Item = &'a str>>(it: &mut I, slot: &mut String) {
+    if let Some(v) = it.next() {
+        *slot = v.into();
+    }
+}
+
+fn take_port<'a, I: Iterator<Item = &'a str>>(it: &mut I, slot: &mut u16) {
+    if let Some(v) = it.next()
+        && let Ok(p) = v.parse::<u16>()
+    {
+        *slot = p;
+    }
+}
+
+/// 解析 `src host X` / `src port N` / `dst host X` / `dst port N`。
+fn parse_direction<'a, I: Iterator<Item = &'a str>>(
+    it: &mut I,
+    ip_slot: &mut String,
+    port_slot: &mut u16,
+    has_port: &mut bool,
+) {
+    match it.next() {
+        Some("host") => take_ip(it, ip_slot),
+        Some("port") => {
+            take_port(it, port_slot);
+            *has_port = true;
+        }
+        _ => {}
+    }
+}
+
+/// 解析阶段标志位经规范化后的语义状态。
+enum ParseOutcome {
+    /// 既无协议也无端口：保持默认值。
+    Empty,
+    /// icmp + port：非法组合。
+    IcmpWithPort,
+    /// tcp/udp 但没指定 port：非法组合。
+    TcpUdpWithoutPort,
+    /// 显式指定了 tcp/udp + port，或仅 icmp：协议已明确。
+    ExplicitProto,
+    /// 只给了 port 没给协议：默认按 tcp。
+    PortOnly,
+}
+
+impl ParseFlags {
+    fn classify(&self) -> ParseOutcome {
+        match (self.has_icmp, self.has_tcp_udp, self.has_port) {
+            (false, false, false) => ParseOutcome::Empty,
+            (true, _, true) => ParseOutcome::IcmpWithPort,
+            (_, true, false) => ParseOutcome::TcpUdpWithoutPort,
+            (false, false, true) => ParseOutcome::PortOnly,
+            _ => ParseOutcome::ExplicitProto,
         }
     }
+}
 
-    // 指定了port，但是没有指定具体协议(tcp/udp)，那么默认则是tcp
-    if has_port && !has_tcp_udp && !has_icmp {
-        config.ip_proto = ip_proto::parse("tcp")?;
-    }
-
-    if has_icmp && has_port {
-        return Err(CliError::ArgsErr(
+fn apply_defaults(cfg: &mut FilterConfig, flags: &ParseFlags) -> Result<(), CliError> {
+    match flags.classify() {
+        ParseOutcome::Empty => Ok(()),
+        ParseOutcome::IcmpWithPort => Err(CliError::ArgsErr(
             "icmp protocol cannot be used with port specification".into(),
-        ));
-    }
-
-    if has_tcp_udp && !has_port {
-        return Err(CliError::ArgsErr(
+        )),
+        ParseOutcome::TcpUdpWithoutPort => Err(CliError::ArgsErr(
             "tcp/udp protocol requires a port specification".into(),
-        ));
+        )),
+        ParseOutcome::PortOnly => {
+            cfg.ip_proto = ip_proto::parse("tcp")?;
+            cfg.eth_proto = eth_proto::ETH_P_IP;
+            Ok(())
+        }
+        ParseOutcome::ExplicitProto => {
+            cfg.eth_proto = eth_proto::ETH_P_IP;
+            Ok(())
+        }
     }
-
-    // 如果指定了协议 或者 指定icmp协议 或者指定端口, 则默认使用ip v4协议
-    if has_tcp_udp || has_icmp || has_port {
-        config.eth_proto = eth_proto::ETH_P_IP;
-    }
-
-    Ok(config)
 }

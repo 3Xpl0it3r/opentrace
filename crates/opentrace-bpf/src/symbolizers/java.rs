@@ -74,51 +74,36 @@ fn resolve_symbol<'a>(symbol: &ResolvedSymbol<'a>, addr: u64) -> ResolvedSymbol<
     }
 }
 
-fn parse_symbol_output(input: &str) -> Vec<(ResolvedSymbol<'static>, u64)> {
-    let mut symbols = Vec::new();
+/// 需要跳过的非符号行前缀（jallsyms 输出里的状态/注释行）。
+const SKIP_PREFIXES: &[&str] = &["#", "Attaching", "Starting", "Done"];
 
-    for line in input.lines() {
-        let line = line.trim();
+fn is_skippable_line(line: &str) -> bool {
+    line.is_empty() || SKIP_PREFIXES.iter().any(|p| line.starts_with(p))
+}
 
-        // 跳过空行、注释行、状态行
-        if line.is_empty()
-            || line.starts_with('#')
-            || line.starts_with("Attaching")
-            || line.starts_with("Starting")
-            || line.starts_with("Done")
-        {
-            continue;
-        }
-
-        // 按空格拆成3部分：地址 大小 函数名
-        let parts: Vec<&str> = line.splitn(3, ' ').collect();
-        if parts.len() != 3 {
-            continue;
-        }
-
-        // 解析地址（十六进制字符串 -> u64）
-        let address = match u64::from_str_radix(parts[0].trim(), 16) {
-            Ok(addr) => addr,
-            Err(_) => continue,
-        };
-
-        // 解析符号大小（十六进制字符串 -> u64）
-        let size = match u64::from_str_radix(parts[1].trim(), 16) {
-            Ok(size) => size,
-            Err(_) => continue,
-        };
-
-        let function_name = parts[2].trim();
-        let symbol = ResolvedSymbol {
-            name: Cow::Owned(function_name.to_owned()),
-            start_addr: address,
-            offset: 0,
-        };
-
-        symbols.push((symbol, size));
+/// 解析单行符号：`<hex_addr> <hex_size> <name>`，格式不符或数字解析失败返回 None。
+fn parse_symbol_line(line: &str) -> Option<(ResolvedSymbol<'static>, u64)> {
+    let parts: Vec<&str> = line.splitn(3, ' ').collect();
+    if parts.len() != 3 {
+        return None;
     }
+    let address = u64::from_str_radix(parts[0].trim(), 16).ok()?;
+    let size = u64::from_str_radix(parts[1].trim(), 16).ok()?;
+    let symbol = ResolvedSymbol {
+        name: Cow::Owned(parts[2].trim().to_owned()),
+        start_addr: address,
+        offset: 0,
+    };
+    Some((symbol, size))
+}
 
-    symbols
+fn parse_symbol_output(input: &str) -> Vec<(ResolvedSymbol<'static>, u64)> {
+    input
+        .lines()
+        .map(str::trim)
+        .filter(|line| !is_skippable_line(line))
+        .filter_map(parse_symbol_line)
+        .collect()
 }
 
 #[cfg(test)]

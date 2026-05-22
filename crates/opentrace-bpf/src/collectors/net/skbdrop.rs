@@ -58,6 +58,14 @@ impl Event {
             _ => "unknown",
         }
     }
+
+    /// 实际有效的栈帧数（按字节 size / sizeof(u64)，并被数组容量截断）。
+    fn effective_stack_len(&self) -> usize {
+        if self.stack_size <= 0 {
+            return 0;
+        }
+        ((self.stack_size as usize) / mem::size_of::<u64>()).min(self.stack.len())
+    }
 }
 
 impl Serialize for Event {
@@ -65,25 +73,18 @@ impl Serialize for Event {
     where
         S: serde::Serializer,
     {
-        let stack_len = if self.stack_size > 0 {
-            ((self.stack_size as usize) / mem::size_of::<u64>()).min(self.stack.len())
-        } else {
-            0
-        };
-        // 基础字段: l2, l3, l4, source
+        let stack_len = self.effective_stack_len();
+        // 基础字段: l2, l3, l4, source；有栈时额外多一项 stack
         let field_cnt = if stack_len > 0 { 5 } else { 4 };
 
         let mut state = serializer.serialize_struct("Event", field_cnt)?;
-
         state.serialize_field("l2", &self.l2_info)?;
         state.serialize_field("l3", &self.l3_info)?;
         state.serialize_field("l4", &self.l4_info)?;
         state.serialize_field("source", self.drop_source_str())?;
-
-        if stack_len == 0 {
-            return state.end();
+        if stack_len > 0 {
+            state.serialize_field("stack", &self.stack[..stack_len])?;
         }
-        state.serialize_field("stack", &self.stack[..stack_len])?;
         state.end()
     }
 }
@@ -275,51 +276,57 @@ pub struct DefaultFormatter<'a> {
 
 impl<'a> StreamFormatter<Event> for DefaultFormatter<'a> {
     fn format<W: std::io::Write>(&self, w: &mut W, event: &Event) -> Result<(), std::io::Error> {
-        let sport = u16::from_be(event.l4_info.sport);
-        let dport = u16::from_be(event.l4_info.dport);
-        let reason = event.drop_source_str();
-
-        match event.l3_info.ip_version {
-            4 => {
-                writeln!(
-                    w,
-                    "{}:{} -> {}:{}",
-                    AddrV4::from(event.l3_info.saddr),
-                    sport,
-                    AddrV4::from(event.l3_info.daddr),
-                    dport,
-                )?;
-            }
-            6 => {
-                writeln!(
-                    w,
-                    "{}:{} -> {}:{}",
-                    AddrV6::from(event.l3_info.saddr),
-                    sport,
-                    AddrV6::from(event.l3_info.daddr),
-                    dport,
-                )?;
-            }
-            _ => {
-                writeln!(w, "0.0.0.0:{} -> 0.0.0.0:{}", sport, dport)?;
-            }
-        }
-
-        writeln!(w, "reason: {}", reason)?;
-
-        if event.stack_size > 0 {
-            writeln!(w, "stack:")?;
-            let stk_cnt = (event.stack_size as usize) / mem::size_of::<u64>();
-            for addr in event.stack[..stk_cnt.min(event.stack.len())].iter() {
-                let symb = self.symbolizer.resolve(SymbolizeInput {
-                    source: self.source.clone(),
-                    addr: *addr,
-                });
-                writeln!(w, "    {}", symb.name)?;
-            }
-        }
-
+        write_endpoints(w, event)?;
+        writeln!(w, "reason: {}", event.drop_source_str())?;
+        self.write_stack(w, event)?;
         writeln!(w, "{}", "---+---".repeat(10))
+    }
+}
+
+/// 输出 "src:sport -> dst:dport" 一行，按 IP 版本走不同地址格式。
+fn write_endpoints<W: std::io::Write>(w: &mut W, event: &Event) -> Result<(), std::io::Error> {
+    let sport = u16::from_be(event.l4_info.sport);
+    let dport = u16::from_be(event.l4_info.dport);
+    match event.l3_info.ip_version {
+        4 => writeln!(
+            w,
+            "{}:{} -> {}:{}",
+            AddrV4::from(event.l3_info.saddr),
+            sport,
+            AddrV4::from(event.l3_info.daddr),
+            dport,
+        ),
+        6 => writeln!(
+            w,
+            "{}:{} -> {}:{}",
+            AddrV6::from(event.l3_info.saddr),
+            sport,
+            AddrV6::from(event.l3_info.daddr),
+            dport,
+        ),
+        _ => writeln!(w, "0.0.0.0:{} -> 0.0.0.0:{}", sport, dport),
+    }
+}
+
+impl<'a> DefaultFormatter<'a> {
+    fn write_stack<W: std::io::Write>(
+        &self,
+        w: &mut W,
+        event: &Event,
+    ) -> Result<(), std::io::Error> {
+        if event.stack_size <= 0 {
+            return Ok(());
+        }
+        writeln!(w, "stack:")?;
+        let stk_cnt = (event.stack_size as usize) / mem::size_of::<u64>();
+        for addr in event.stack[..stk_cnt.min(event.stack.len())].iter() {
+            let symb = self.symbolizer.resolve(SymbolizeInput {
+                source: self.source.clone(),
+                addr: *addr,
+            });
+            writeln!(w, "    {}", symb.name)?;
+        }
+        Ok(())
     }
 }
 
