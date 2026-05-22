@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::Exporter;
 use crate::bpf::skbdrop::{SkbdropSkel, SkbdropSkelBuilder};
 use crate::collectors::Collector as CollectorTrait;
+use crate::env;
 use crate::errors::EbpfError;
 use crate::format::StreamFormatter;
 use crate::probes::Registry as ProbeRegistry;
@@ -18,10 +19,22 @@ use crate::skeleton::with_custom_btf_open_opts;
 use crate::symbolizers::*;
 use crate::utils::net as net_utils;
 
-use crate::types::net::{AddrV4, AddrV6, L2Info, L3Info, L4Info, PktInfo};
+use crate::types::net::{AddrV4, AddrV6, L2Info, L3Info, L4Info};
+
+// 在
 
 const CONFIG_KEY: u8 = 0;
-const KFREE_SKB_KPROBE: &str = "kfree_skb_reason";
+/// 5.16+ 内核 drop reason。
+const KFREE_SKB_REASON: &str = "kfree_skb_reason";
+///  5.16以下版本内核
+const KFREE_SKB_FALLBACK: &str = "__kfree_skb";
+/// 在4.19/4.18版本内核上测试发现iptables的drop和reject包并没有被__kfree_skb抓到，所以在nf_hook_slow上hook了下
+/// 但是为了在z正常__kfree_skb能抓到iptables drop的包的内核上有重复，所以对这个hook做了内科版本限制
+const NF_HOOK_SLOW: &str = "nf_hook_slow";
+
+/// drop 事件来源，与 skbdrop.bpf.c 中的 DROP_SRC_* 对齐。
+pub const DROP_SRC_KFREE_SKB: u8 = 1;
+pub const DROP_SRC_NF_HOOK: u8 = 2;
 
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -33,6 +46,18 @@ pub struct Event {
     pub stack_size: i64,
     pub stack: [u64; 16],
     drop_reason: u8,
+    drop_source: u8,
+}
+
+impl Event {
+    /// 将原始的 drop_source 数值翻译成可读字符串。
+    pub fn drop_source_str(&self) -> &'static str {
+        match self.drop_source {
+            DROP_SRC_KFREE_SKB => "kfree_skb",
+            DROP_SRC_NF_HOOK => "nf_hook(drop/reject)",
+            _ => "unknown",
+        }
+    }
 }
 
 impl Serialize for Event {
@@ -45,13 +70,15 @@ impl Serialize for Event {
         } else {
             0
         };
-        let field_cnt = if stack_len > 0 { 4 } else { 3 };
+        // 基础字段: l2, l3, l4, source
+        let field_cnt = if stack_len > 0 { 5 } else { 4 };
 
         let mut state = serializer.serialize_struct("Event", field_cnt)?;
 
         state.serialize_field("l2", &self.l2_info)?;
         state.serialize_field("l3", &self.l3_info)?;
         state.serialize_field("l4", &self.l4_info)?;
+        state.serialize_field("source", self.drop_source_str())?;
 
         if stack_len == 0 {
             return state.end();
@@ -182,17 +209,61 @@ impl CollectorTrait for Collector<'_> {
     }
 
     fn attach_probe(&mut self) -> Result<(), EbpfError> {
-        println!("kprobe attached");
-        if !self.probe_registry.kprobe_is_available(KFREE_SKB_KPROBE) {
-            return Err(EbpfError::ProbeNotFound(KFREE_SKB_KPROBE.into()));
+        let mut attached = 0usize;
+
+        // 1) kfree_skb 系列：覆盖 TCP 栈/qdisc/驱动等非 netfilter drop
+        let kfree_target = if self.probe_registry.kprobe_is_available(KFREE_SKB_REASON) {
+            Some(KFREE_SKB_REASON)
+        } else if self.probe_registry.kprobe_is_available(KFREE_SKB_FALLBACK) {
+            Some(KFREE_SKB_FALLBACK)
+        } else {
+            None
+        };
+        if let Some(name) = kfree_target {
+            let link = self
+                .skel
+                .progs
+                .kp_kfree_skb
+                .attach_kprobe(false, name)
+                .map_err(EbpfError::Libbpf)?;
+            self._links.push(link);
+            println!("kprobe attached: {}", name);
+            attached += 1;
         }
-        let link = self
-            .skel
-            .progs
-            .kp_kfree_skb
-            .attach_kprobe(false, KFREE_SKB_KPROBE)
-            .map_err(EbpfError::Libbpf)?;
-        self._links.push(link);
+
+        // 低于5.0版本的内核为了方式iptables
+        // drop和reject的包无法在kfree_skb上捕获到，因此额外挂在nf_hook_slow的包
+        let kver = env::kernel_version();
+        let need_nf_hook = kver < (5, 0);
+        if need_nf_hook && self.probe_registry.kprobe_is_available(NF_HOOK_SLOW) {
+            let entry = self
+                .skel
+                .progs
+                .kp_nf_hook_slow
+                .attach_kprobe(false, NF_HOOK_SLOW)
+                .map_err(EbpfError::Libbpf)?;
+            self._links.push(entry);
+
+            let ret = self
+                .skel
+                .progs
+                .kret_nf_hook_slow
+                .attach_kprobe(true, NF_HOOK_SLOW)
+                .map_err(EbpfError::Libbpf)?;
+            self._links.push(ret);
+            println!(
+                "kprobe attached: {} (entry+ret, kernel {}.{} < 5.0)",
+                NF_HOOK_SLOW, kver.0, kver.1
+            );
+            attached += 1;
+        }
+
+        if attached == 0 {
+            return Err(EbpfError::ProbeNotFound(format!(
+                "none of [{}, {}, {}] available",
+                KFREE_SKB_REASON, KFREE_SKB_FALLBACK, NF_HOOK_SLOW
+            )));
+        }
         Ok(())
     }
 }
@@ -206,12 +277,13 @@ impl<'a> StreamFormatter<Event> for DefaultFormatter<'a> {
     fn format<W: std::io::Write>(&self, w: &mut W, event: &Event) -> Result<(), std::io::Error> {
         let sport = u16::from_be(event.l4_info.sport);
         let dport = u16::from_be(event.l4_info.dport);
+        let reason = event.drop_source_str();
 
         match event.l3_info.ip_version {
             4 => {
                 writeln!(
                     w,
-                    " {:<22}:{} {:<22}:{}",
+                    "{}:{} -> {}:{}",
                     AddrV4::from(event.l3_info.saddr),
                     sport,
                     AddrV4::from(event.l3_info.daddr),
@@ -221,7 +293,7 @@ impl<'a> StreamFormatter<Event> for DefaultFormatter<'a> {
             6 => {
                 writeln!(
                     w,
-                    " {:<22}:{} {:<22}:{}",
+                    "{}:{} -> {}:{}",
                     AddrV6::from(event.l3_info.saddr),
                     sport,
                     AddrV6::from(event.l3_info.daddr),
@@ -229,23 +301,21 @@ impl<'a> StreamFormatter<Event> for DefaultFormatter<'a> {
                 )?;
             }
             _ => {
-                writeln!(
-                    w,
-                    " {:<22} {:<22}",
-                    format!("{}:{}", "0.0.0.0", sport),
-                    format!("{}:{}", "0.0.0.0", dport),
-                )?;
+                writeln!(w, "0.0.0.0:{} -> 0.0.0.0:{}", sport, dport)?;
             }
         }
 
+        writeln!(w, "reason: {}", reason)?;
+
         if event.stack_size > 0 {
+            writeln!(w, "stack:")?;
             let stk_cnt = (event.stack_size as usize) / mem::size_of::<u64>();
             for addr in event.stack[..stk_cnt.min(event.stack.len())].iter() {
                 let symb = self.symbolizer.resolve(SymbolizeInput {
                     source: self.source.clone(),
                     addr: *addr,
                 });
-                writeln!(w, "        {}({})", symb.name, symb.offset)?;
+                writeln!(w, "    {}", symb.name)?;
             }
         }
 

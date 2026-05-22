@@ -1,0 +1,64 @@
+name: Crap
+
+on:
+  push:
+    branches: [ "master" ]
+    paths-ignore:
+      - '**.md'
+      - 'images/**'
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  crap:
+    name: Code Complexity (cargo-crap)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: llvm-tools-preview
+
+      - name: Cache cargo registry & cargo-crap binary
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          # 让 ci.yaml 与本 workflow 共享缓存键空间，避免互相覆盖
+          shared-key: crap
+
+      - name: Install eBPF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            llvm \
+            libelf-dev \
+            zlib1g-dev \
+            libbpf-dev \
+            pkg-config
+
+      - name: Install cargo-crap (cached)
+        run: |
+          if ! command -v cargo-crap >/dev/null 2>&1; then
+            cargo install cargo-crap --locked
+          else
+            echo "cargo-crap already installed (cache hit)"
+            cargo-crap --version || true
+          fi
+
+      - name: Run cargo-crap
+        # crap 失败仅作警示，不阻塞合并：把 step 标 continue-on-error，
+        # job 与 workflow 都会显示绿色，仅该 step 在 UI 上标红可见。
+        # 想阻塞合并时改回去掉这一行 + 在仓库 branch protection 里加为 required。
+        continue-on-error: true
+        run: cargo crap --workspace

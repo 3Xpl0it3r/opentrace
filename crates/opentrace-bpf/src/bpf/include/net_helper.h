@@ -3,6 +3,7 @@
 
 #include "vmlinux.h"
 #include "libbpf/src/bpf_helpers.h"
+#include "libbpf/src/bpf_core_read.h"
 #include "net_types.h"
 
 // 从struct sk_buff里面获取struct sock字段
@@ -17,13 +18,10 @@ static __always_inline unsigned char *skb_sock(struct sk_buff *skb) {
 }
 
 // 从sock里面获取网络协议
+// 注意: 自 4.x 起 struct sock::sk_protocol 是 bit-field, 不能用 offsetof,
+// 必须用 CO-RE 的 bit-field 读取宏 (由 libbpf 在加载时做 relocation)。
 static __always_inline u16 sck_protocol(struct sock *sck) {
-  u16 protocol;
-  if (bpf_probe_read_kernel(&protocol, sizeof(protocol),
-                            (void *)sck + offsetof(struct sock, sk_protocol)) !=
-      0)
-    return 0;
-  return protocol;
+  return (u16)BPF_CORE_READ_BITFIELD_PROBED(sck, sk_protocol);
 }
 
 // 从sock里面获取网络协议簇, 是IPV4 还是IPV6

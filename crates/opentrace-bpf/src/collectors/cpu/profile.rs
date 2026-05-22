@@ -63,17 +63,6 @@ pub struct Config {
     pub custom_btf_path: Option<String>,
 }
 
-/* impl Config {
-    fn validate(config: &Config) -> Result<(), EbpfError> {
-        if config.pid == -1 && config.cpu == -1 {
-            return Err(EbpfError::ConfigErr(
-                "ProfileConfig'field pid and cpu cann't be -1 at same time".into(),
-            ));
-        }
-        Ok(())
-    }
-} */
-
 // perf profile event,
 pub struct Collector<'a> {
     skel: perf_profile::PerfProfileSkel<'a>,

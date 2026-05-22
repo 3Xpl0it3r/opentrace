@@ -1,0 +1,6 @@
+threshold = 30.0
+fail-above = true
+missing = "pessimistic"
+exclude = ["tests/**", "benches/**"]
+allow = ["generated::*", "src/generated/**"]
+epsilon = 0.01

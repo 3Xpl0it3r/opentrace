@@ -123,8 +123,12 @@ $(VMLINUX_H) $(VMLINUX_BTF): | install-pahole install-debuginfo
 	echo ">>> 使用 vmlinux: $$vmlinux_path"; \
 	pahole --btf_encode_detached $(VMLINUX_BTF) "$$vmlinux_path"; \
 	echo ">>> 已生成 BTF 文件: $(VMLINUX_BTF)"; \
-	pahole --compile "$$vmlinux_path" > $(VMLINUX_H); \
-	echo ">>> 已生成头文件: $(VMLINUX_H)"
+	command -v bpftool >/dev/null 2>&1 || { echo "错误: 未找到 bpftool, 请安装 (apt: linux-tools-common / dnf: bpftool / pacman: bpf)" >&2; exit 1; }; \
+	bpftool btf dump file $(VMLINUX_BTF) format c > $(VMLINUX_H); \
+	echo ">>> 已生成头文件 (bpftool): $(VMLINUX_H)"
+	# 原 pahole 生成方式 (已弃用, 改用 bpftool btf dump):
+	# pahole --compile "$$vmlinux_path" > $(VMLINUX_H); \
+	# echo ">>> 已生成头文件: $(VMLINUX_H)"
 
 # 3. 无 BTF 时自动安装 pahole (dwarves)
 install-pahole:

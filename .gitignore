@@ -25,3 +25,4 @@ target/
 crates/opentrace-bpf/src/bpf/vmlinux
 crates/opentrace-bpf/src/bpf/*.skel.rs
 crates/opentrace-bpf/src/bpf/*.o
+lcov.info

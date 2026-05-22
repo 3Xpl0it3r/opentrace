@@ -138,7 +138,7 @@ fn main() {
         .into_iter()
         .flat_map(clang_include_args)
         .collect();
-    clang_args.push(OsStr::new("-DLINUX_KERNEL_VERSION=50400").to_owned());
+    clang_args.push(OsStr::new("-DLINUX_KERNEL_CODE=50400").to_owned());
 
     for source in &bpf_sources {
         let out = skeleton_output_path_from_source(source)
