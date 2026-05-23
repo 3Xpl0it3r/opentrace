@@ -1,9 +1,9 @@
-![CI](https://img.shields.io/github/actions/workflow/status/3Xpl0it3r/opentrace/ci.yaml?label=CI)
-![Crap](https://img.shields.io/github/actions/workflow/status/3Xpl0it3r/opentrace/crap.yaml?label=Crap)
-![Docker](https://img.shields.io/badge/Docker-Pending-lightgrey)
-![Security Audit](https://github.com/3Xpl0it3r/opentrace/actions/workflows/audit.yaml/badge.svg)
-![GitHub commit activity](https://img.shields.io/github/commit-activity/m/3Xpl0it3r/opentrace)
-![GitHub last commit](https://img.shields.io/github/last-commit/3Xpl0it3r/opentrace)
+![CI](https://img.shields.io/github/actions/workflow/status/3Xpl0it3r/opentrace/ci.yaml?label=CI&logo=github)
+![Crap](https://img.shields.io/github/actions/workflow/status/3Xpl0it3r/opentrace/crap.yaml?label=Crap&logo=github)
+![Docker](https://img.shields.io/badge/Docker-Pending-lightgrey?logo=docker)
+![Security Audit](https://img.shields.io/github/actions/workflow/status/3Xpl0it3r/opentrace/audit.yaml?label=Security%20Audit&logo=github)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/m/3Xpl0it3r/opentrace?logo=github)
+![GitHub last commit](https://img.shields.io/github/last-commit/3Xpl0it3r/opentrace?logo=github)
 
 # opentrace
 

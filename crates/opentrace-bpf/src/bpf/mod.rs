@@ -11,4 +11,3 @@ pub mod skbdrop {
         "/src/bpf/skbdrop.skel.rs"
     ));
 }
-

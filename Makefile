@@ -68,7 +68,7 @@ endif
 # ---------------------------------------------------------------------------
 # Targets
 # ---------------------------------------------------------------------------
-.PHONY: build release info check-tools check-btf vmlinux install-pahole install-debuginfo clean help
+.PHONY: build release info check-tools check-btf vmlinux install-pahole install-debuginfo clean help deny
 
 build: info $(BTF_DEPS) check-tools check-btf
 	@echo ">>> cargo build  (HAS_BTF=$(HAS_BTF), arch=$(UNAME_M))"
@@ -77,6 +77,11 @@ build: info $(BTF_DEPS) check-tools check-btf
 release: info $(BTF_DEPS) check-tools check-btf
 	@echo ">>> cargo build --release  (HAS_BTF=$(HAS_BTF), arch=$(UNAME_M))"
 	$(CARGO_ENV) cargo build --release
+
+# 跟 .github/workflows/cargo-deny.yaml 行为对齐：跳过 licenses 检查。
+# 想跑完整检查（含 license）用 `cargo deny check`。
+deny:
+	cargo deny check advisories bans sources
 
 info:
 	@echo ">>> Distro : $(DISTRO_ID) $(DISTRO_VER)"

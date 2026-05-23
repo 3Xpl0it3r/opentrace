@@ -25,4 +25,7 @@ jobs:
           tool: cargo-deny
       
       - name: Run cargo deny
-        run: cargo deny check
+        # 只跑 advisories（漏洞）/ bans（依赖禁用）/ sources（来源白名单），
+        # 跳过 licenses 检查（项目暂不强制 license 合规）。
+        # 想恢复时改回 `cargo deny check` 即可。
+        run: cargo deny check advisories bans sources
