@@ -25,12 +25,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+        with:
+          # 拉 git submodule（libbpf）
+          submodules: recursive
+
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: rustfmt, clippy
-          
+
+      - name: Cache cargo registry / git deps / target
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          # 跟 crap.yaml 用不同 key，避免互相覆盖
+          shared-key: ci
+          # 显式标注被缓存的目录（默认就包含，写出来方便排查）
+          #   ~/.cargo/registry/index    crates.io index
+          #   ~/.cargo/registry/cache    .crate 压缩包
+          #   ~/.cargo/git/db            git deps 的 bare 仓库
+          #   ~/.cargo/git/checkouts     git deps 的 checkout（如 vmlinux.h）
+          #   target/                    编译产物
+
       - name: Install eBPF dependencies
         run: |
           sudo apt-get update
@@ -44,7 +60,7 @@ jobs:
 
       - name: Check formatting
         run: cargo fmt --all -- --check
-        
+
       - name: Run Clippy (warnings as errors)
         run: cargo clippy --workspace --all-targets -- -D warnings
 

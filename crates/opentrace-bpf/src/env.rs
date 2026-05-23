@@ -7,7 +7,7 @@ use crate::errors::EbpfError;
 const KERNEL_BTF_PATH: &str = "/sys/kernel/btf/vmlinux";
 const DEFAULT_CUSTOM_BTF_NAME: &str = "vmlinux.btf";
 /// BTF 文件 magic（little-endian 写入磁盘后字节序为 0x9F 0xEB）。
-const BTF_MAGIC: u16 = 0xeB9F;
+const BTF_MAGIC: u16 = 0xeb9f;
 
 pub fn setup_memlock_limit() {
     let rlim = libc::rlimit {
