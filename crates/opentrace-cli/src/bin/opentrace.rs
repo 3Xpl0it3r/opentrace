@@ -22,7 +22,6 @@ async fn main() -> Result<(), CliError> {
     let mut object = opentrace_bpf::open_object_storage();
     let ctx = (&opts).into();
 
-
     match opts.commands {
         options::Command::Trace(subcommand) => {
             opentrace_cli::commands::trace::run(

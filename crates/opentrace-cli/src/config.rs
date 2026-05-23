@@ -178,8 +178,18 @@ fn apply_token<'a, I: Iterator<Item = &'a str>>(
             take_port(tokens, &mut cfg.any_port);
             flags.has_port = true;
         }
-        "src" => parse_direction(tokens, &mut cfg.src_ip, &mut cfg.src_port, &mut flags.has_port),
-        "dst" => parse_direction(tokens, &mut cfg.dst_ip, &mut cfg.dst_port, &mut flags.has_port),
+        "src" => parse_direction(
+            tokens,
+            &mut cfg.src_ip,
+            &mut cfg.src_port,
+            &mut flags.has_port,
+        ),
+        "dst" => parse_direction(
+            tokens,
+            &mut cfg.dst_ip,
+            &mut cfg.dst_port,
+            &mut flags.has_port,
+        ),
         _ => {}
     }
 }

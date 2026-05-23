@@ -84,7 +84,9 @@ pub fn kernel_version() -> (u32, u32) {
         Ok(s) => s,
         Err(_) => return (0, 0),
     };
-    let mut it = s.split(|c: char| !c.is_ascii_digit()).filter(|p| !p.is_empty());
+    let mut it = s
+        .split(|c: char| !c.is_ascii_digit())
+        .filter(|p| !p.is_empty());
     let major = it.next().and_then(|s| s.parse().ok()).unwrap_or(0);
     let minor = it.next().and_then(|s| s.parse().ok()).unwrap_or(0);
     (major, minor)
