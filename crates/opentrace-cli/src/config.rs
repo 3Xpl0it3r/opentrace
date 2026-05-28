@@ -3,7 +3,7 @@
 use std::fmt::{self, Display, Formatter};
 
 use opentrace_bpf::collector::net::SkbdropConfig;
-use opentrace_bpf::protocols::{eth_proto, ip_proto};
+use opentrace_bpf::protocol::{eth_proto, ip_proto};
 
 use crate::errors::CliError;
 

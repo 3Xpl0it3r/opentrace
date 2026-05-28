@@ -26,7 +26,7 @@ pub async fn run(
     Ok(())
 }
 
-pub fn run_as_skbdrop(
+fn run_as_skbdrop(
     ctx: CliOptsCtx,
     options: SkbDropOptions,
     registry: &mut ProbeRegistry,

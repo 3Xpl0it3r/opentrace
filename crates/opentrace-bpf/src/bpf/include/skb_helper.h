@@ -1,5 +1,5 @@
-#ifndef OPENTRACE_BPF_NET_HELPER_H
-#define OPENTRACE_BPF_NET_HELPER_H
+#ifndef OPENTRACE_BPF_SKB_HELPER_H
+#define OPENTRACE_BPF_SKB_HELPER_H
 
 #include "vmlinux.h"
 #include "libbpf/src/bpf_helpers.h"
@@ -111,8 +111,8 @@ static __always_inline u8 ip_version(void *network_header) {
 
 // 填充l2_info,
 // 优先获取skb->protocol字段，失败则从eth_hdr里面获取,理论上这两个字段的值是一样的
-static __always_inline void set_l2_info(struct sk_buff *skb,
-                                        struct l2_info_t *l2_info) {
+static __always_inline void populate_l2_info(struct sk_buff *skb,
+                                          struct l2_info_t *l2_info) {
   struct ethhdr *eth_header = (struct ethhdr *)skb_ether_header(skb);
 
   if (bpf_probe_read_kernel(&l2_info->eth_proto, sizeof(l2_info->eth_proto),
@@ -127,8 +127,8 @@ static __always_inline void set_l2_info(struct sk_buff *skb,
 }
 
 // 从 skb 的 IPv4 头填充l3_info_t
-static __always_inline void set_ipv4_info(struct sk_buff *skb,
-                                          struct l3_info_t *l3_info) {
+static __always_inline void populate_ipv4_info(struct sk_buff *skb,
+                                            struct l3_info_t *l3_info) {
   struct iphdr *iphdr = (struct iphdr *)skb_network_header(skb);
   l3_info->ip_version = 4;
 
@@ -141,8 +141,8 @@ static __always_inline void set_ipv4_info(struct sk_buff *skb,
 }
 
 // 从 skb 的 IPv6 头填充l3_info_t
-static __always_inline void set_ipv6_info(struct sk_buff *skb,
-                                          struct l3_info_t *l3_info) {
+static __always_inline void populate_ipv6_info(struct sk_buff *skb,
+                                            struct l3_info_t *l3_info) {
   struct ipv6hdr *iphdr = (struct ipv6hdr *)skb_network_header(skb);
   l3_info->ip_version = 6;
 
@@ -155,7 +155,7 @@ static __always_inline void set_ipv6_info(struct sk_buff *skb,
 }
 
 // 从 skb 的 TCP 头填充l4_info_t
-static __always_inline void set_tcp_info(struct sk_buff *skb,
+static __always_inline void populate_tcp_info(struct sk_buff *skb,
                                          struct l4_info_t *l4_info) {
   struct tcphdr *tcphdr = (struct tcphdr *)skb_transport_header(skb);
 
@@ -168,7 +168,7 @@ static __always_inline void set_tcp_info(struct sk_buff *skb,
 }
 
 // 从 skb 的 UDP 头填充l4_info_t
-static __always_inline void set_udp_info(struct sk_buff *skb,
+static __always_inline void populate_udp_info(struct sk_buff *skb,
                                          struct l4_info_t *l4_info) {
   struct udphdr *udphdr = (struct udphdr *)skb_transport_header(skb);
 
@@ -179,7 +179,7 @@ static __always_inline void set_udp_info(struct sk_buff *skb,
 }
 
 // 填充报文调试信息，包括 CPU、进程、报文长度、网卡名和网络命名空间。
-static __always_inline void set_pkt_info(struct sk_buff *skb,
+static __always_inline void populate_pkt_info(struct sk_buff *skb,
                                          struct pkt_info_t *pkt_info) {
   pkt_info->cpu = bpf_get_smp_processor_id();
   pkt_info->pid = bpf_get_current_pid_tgid() >> 32;

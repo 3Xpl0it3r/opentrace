@@ -6,13 +6,9 @@
 #include "include/common.h"
 #include "include/ebpf_map.h"
 #include "include/net_filter.h"
-#include "include/net_helper.h"
+#include "include/skb_helper.h"
 #include "include/net_types.h"
 #include "include/process.h"
-
-// ---------------------------------------------------------------------------
-// 常量与 kconfig
-// ---------------------------------------------------------------------------
 
 #define PERF_MAX_STACK_DEPTH 16
 
@@ -23,7 +19,7 @@
 extern int LINUX_KERNEL_VERSION __kconfig;
 
 // ---------------------------------------------------------------------------
-// 数据结构
+// 对外数据结构 public
 // ---------------------------------------------------------------------------
 
 // 用户态下发的过滤配置。
@@ -51,6 +47,10 @@ struct perf_event_t {
   u8 drop_reason;
   u8 drop_source;
 };
+
+// ---------------------------------------------------------------------------
+// 内部使用数据结构 private
+// ---------------------------------------------------------------------------
 
 // 套接字关联信息（保留供后续扩展使用）。
 struct sock_owner_t {
@@ -127,17 +127,17 @@ static __always_inline bool l4_filter(struct l4_info_t *l4,
 }
 
 // 解析 skb 的 L2/L3/L4 字段并过滤；命中过滤条件则填充 event 并返回 true。
-static __always_inline bool do_trace_skbdrop(void *ctx, struct config *cfg,
-                                             struct sk_buff *skb,
-                                             struct perf_event_t *event) {
-  set_l2_info(skb, &event->l2_info);
+static __always_inline bool process_skbdrop(void *ctx, struct config *cfg,
+                                            struct sk_buff *skb,
+                                            struct perf_event_t *event) {
+  populate_l2_info(skb, &event->l2_info);
 
   unsigned char *network_header = skb_network_header(skb);
   u8 ipvs = ip_version(network_header);
   if (ipvs == 4)
-    set_ipv4_info(skb, &event->l3_info);
+    populate_ipv4_info(skb, &event->l3_info);
   else if (ipvs == 6)
-    set_ipv6_info(skb, &event->l3_info);
+    populate_ipv6_info(skb, &event->l3_info);
   else
     return false;
 
@@ -145,9 +145,9 @@ static __always_inline bool do_trace_skbdrop(void *ctx, struct config *cfg,
     return false;
 
   if (event->l3_info.ip_proto == IPPROTO_TCP)
-    set_tcp_info(skb, &event->l4_info);
+    populate_tcp_info(skb, &event->l4_info);
   else if (event->l3_info.ip_proto == IPPROTO_UDP)
-    set_udp_info(skb, &event->l4_info);
+    populate_udp_info(skb, &event->l4_info);
   else
     return false;
 
@@ -207,7 +207,7 @@ int kp_kfree_skb(struct pt_regs *ctx) {
   event->drop_reason = 0;
   event->drop_source = DROP_SRC_KFREE_SKB;
 
-  if (!do_trace_skbdrop(ctx, cfg, skb, event))
+  if (!process_skbdrop(ctx, cfg, skb, event))
     return BPF_OK;
 
   bpf_perf_event_output(ctx, &perf_events, BPF_F_CURRENT_CPU, event,
@@ -277,10 +277,10 @@ int kret_nf_hook_slow(struct pt_regs *ctx) {
   event->drop_reason = 0;
   event->drop_source = DROP_SRC_NF_HOOK;
 
-  if (!do_trace_skbdrop(ctx, cfg, skb, event))
+  if (!process_skbdrop(ctx, cfg, skb, event))
     return BPF_OK;
 
-  // do_trace_skbdrop 在 retprobe 上下文抓的栈是 trampoline，
+  // process_skbdrop 在 retprobe 上下文抓的栈是 trampoline，
   // 用 entry 时暂存的真实调用栈覆盖。
   struct nf_hook_stack_t *st = bpf_map_lookup_elem(&nf_hook_stack, &k);
   if (st && st->stack_size > 0) {

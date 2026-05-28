@@ -37,5 +37,9 @@ async fn main() -> Result<(), CliError> {
             opentrace_cli::commands::perf::run(ctx, subcommand, &mut probe_registry, &mut object)
                 .await
         }
+        options::Command::Watch(subcommand) => {
+            opentrace_cli::commands::watch::run(ctx, subcommand, &mut probe_registry, &mut object)
+                .await
+        }
     }
 }

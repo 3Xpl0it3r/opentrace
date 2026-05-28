@@ -1,13 +1,14 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 use std::mem;
 use std::mem::MaybeUninit;
-use std::os::fd::{AsRawFd, OwnedFd};
+use std::os::fd::OwnedFd;
 
 use libbpf_rs::skel::{OpenSkel, SkelBuilder};
 use libbpf_rs::{Link, OpenObject, PerfBuffer, PerfBufferBuilder};
 
-use crate::bpf::perf_profile::{self, PerfProfileSkelBuilder};
+use crate::bpf::perf_profile::{self, PerfProfileSkel, PerfProfileSkelBuilder};
 use crate::collectors::Collector as CollectorTrait;
+use crate::collectors::macros::{attach_perf_event, define_collector};
 use crate::skeleton::with_custom_btf_open_opts;
 use crate::utils::procfs;
 use crate::utils::syscall::PerfEventFdBuilder;
@@ -148,12 +149,7 @@ impl<'a> CollectorTrait for Collector<'a> {
 
     fn attach_probe(&mut self) -> Result<(), crate::EbpfError> {
         for pfd in self.pfds.iter() {
-            let link = self
-                .skel
-                .progs
-                .perf_profile_samples
-                .attach_perf_event(pfd.as_raw_fd())?;
-            self._links.push(link);
+            attach_perf_event!(self, perf_profile_samples, pfd);
         }
         Ok(())
     }

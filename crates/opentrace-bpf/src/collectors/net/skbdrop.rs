@@ -1,7 +1,7 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
 use std::mem::MaybeUninit;
-use std::{mem, slice, time::Duration};
+use std::{mem, slice};
 
 use libbpf_rs::skel::{OpenSkel as _, SkelBuilder};
 use libbpf_rs::{Link, MapCore, MapFlags, OpenObject, PerfBuffer, PerfBufferBuilder};
@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::Exporter;
 use crate::bpf::skbdrop::{SkbdropSkel, SkbdropSkelBuilder};
-use crate::collectors::Collector as CollectorTrait;
 use crate::env;
 use crate::errors::EbpfError;
 use crate::format::StreamFormatter;
@@ -19,6 +18,9 @@ use crate::skeleton::with_custom_btf_open_opts;
 use crate::symbolizers::*;
 use crate::utils::net as net_utils;
 
+use crate::collectors::macros::{
+    attach_kprobe, attach_kretprobe, attach_tracepoint, define_collector,
+};
 use crate::types::net::{AddrV4, AddrV6, L2Info, L3Info, L4Info};
 
 // 在
@@ -156,12 +158,8 @@ impl Config {
     }
 }
 
-pub struct Collector<'a> {
-    probe_registry: &'a ProbeRegistry,
-    skel: SkbdropSkel<'a>,
-    perf_buffer: PerfBuffer<'a>,
-    _links: Vec<Link>,
-}
+// 创建Collector结构体，并且自动实现Collector trait
+define_collector!(Collector, SkbdropSkel);
 
 impl<'a> Collector<'a> {
     pub fn new(
@@ -201,15 +199,7 @@ impl<'a> Collector<'a> {
             _links: Vec::new(),
         })
     }
-}
-
-impl CollectorTrait for Collector<'_> {
-    fn poll(&mut self, interval: Duration) -> Result<(), EbpfError> {
-        let _ = self.perf_buffer.poll(interval);
-        Ok(())
-    }
-
-    fn attach_probe(&mut self) -> Result<(), EbpfError> {
+    fn do_attach_probes(&mut self) -> Result<(), EbpfError> {
         let mut attached = 0usize;
 
         // 1) kfree_skb 系列：覆盖 TCP 栈/qdisc/驱动等非 netfilter drop
@@ -221,13 +211,7 @@ impl CollectorTrait for Collector<'_> {
             None
         };
         if let Some(name) = kfree_target {
-            let link = self
-                .skel
-                .progs
-                .kp_kfree_skb
-                .attach_kprobe(false, name)
-                .map_err(EbpfError::Libbpf)?;
-            self._links.push(link);
+            attach_kprobe!(self, kp_kfree_skb, name);
             println!("kprobe attached: {}", name);
             attached += 1;
         }
@@ -237,21 +221,9 @@ impl CollectorTrait for Collector<'_> {
         let kver = env::kernel_version();
         let need_nf_hook = kver < (5, 0);
         if need_nf_hook && self.probe_registry.kprobe_is_available(NF_HOOK_SLOW) {
-            let entry = self
-                .skel
-                .progs
-                .kp_nf_hook_slow
-                .attach_kprobe(false, NF_HOOK_SLOW)
-                .map_err(EbpfError::Libbpf)?;
-            self._links.push(entry);
+            attach_kprobe!(self, kp_nf_hook_slow, NF_HOOK_SLOW);
+            attach_kretprobe!(self, kp_nf_hook_slow, NF_HOOK_SLOW);
 
-            let ret = self
-                .skel
-                .progs
-                .kret_nf_hook_slow
-                .attach_kprobe(true, NF_HOOK_SLOW)
-                .map_err(EbpfError::Libbpf)?;
-            self._links.push(ret);
             println!(
                 "kprobe attached: {} (entry+ret, kernel {}.{} < 5.0)",
                 NF_HOOK_SLOW, kver.0, kver.1

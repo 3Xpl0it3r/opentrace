@@ -35,6 +35,9 @@ pub enum Command {
 
     #[command(subcommand)]
     Perf(perf::Subcommand),
+
+    #[command(subcommand)]
+    Watch(watch::Subcommand),
 }
 
 pub mod trace {
@@ -150,6 +153,35 @@ pub mod perf {
                 cpu: self.cpu,
                 group_id: self.group_id,
                 custom_btf_path: ctx.custom_btf_path,
+            }
+        }
+    }
+}
+
+pub mod watch {
+    use clap::Args;
+    use clap::ValueEnum;
+    use opentrace_bpf::collector::cpu::ProfileConfig;
+    use opentrace_bpf::collector::net::SocketTraceConfig;
+
+    use super::CliOptsCtx;
+
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Subcommand {
+        #[command(name = "elastic")]
+        Elastic(ElasticOptions),
+    }
+    #[derive(Debug, Args)]
+    pub struct ElasticOptions {
+        #[arg(short = 'p', long = "pid")]
+        pub pid: u32,
+    }
+
+    impl ElasticOptions {
+        pub fn to_config(self, ctx: CliOptsCtx) -> SocketTraceConfig {
+            SocketTraceConfig {
+                custom_btf_path: ctx.custom_btf_path,
+                pid: self.pid,
             }
         }
     }

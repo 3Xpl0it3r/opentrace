@@ -23,3 +23,4 @@ serde_json = {workspace = true}
 tokio = {workspace=true}
 tokio-util = {workspace=true}
 blazesym = "0.2"
+paste = "1"

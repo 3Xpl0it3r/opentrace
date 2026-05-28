@@ -50,7 +50,7 @@ static __always_inline void my_memcpy(void *dst, const void *src,
 }
 
 // 用来清零操作
-static __always_inline void my_memset(void *dst, unsigned long size) {
+static __always_inline void my_memzero(void *dst, unsigned long size) {
   __builtin_memset(dst, 0, size);
 }
 

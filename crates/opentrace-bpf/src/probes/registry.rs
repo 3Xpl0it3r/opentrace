@@ -12,14 +12,14 @@ const AVAILABLE_EVENTS: &str = "/sys/kernel/debug/tracing/available_events";
 #[derive(Clone)]
 pub struct Registry {
     kprobes: HashMap<String, bool>,
-    _tracepoints: HashMap<String, bool>,
+    tracepoints: HashMap<String, bool>,
 }
 
 impl Registry {
     pub fn try_init() -> Result<Self, EbpfError> {
         Ok(Self {
             kprobes: read_kprobes()?,
-            _tracepoints: read_tracepoints()?,
+            tracepoints: read_tracepoints()?,
         })
     }
 
@@ -32,14 +32,14 @@ impl Registry {
         supported
     }
 
-    /* #[inline]
+    #[inline]
     pub(crate) fn tracepoint_is_available(&self, tp: &str) -> bool {
-        let supported = self._tracepoints.contains_key(tp);
+        let supported = self.tracepoints.contains_key(tp);
         if !supported {
             println!("tracepoint {} is not supported in current os", tp);
         }
         supported
-    } */
+    }
 }
 
 #[inline]

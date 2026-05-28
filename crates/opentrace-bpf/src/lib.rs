@@ -8,9 +8,9 @@ mod skeleton;
 mod probes;
 mod symbolizers;
 mod formatter;
+mod protocols;
 
 pub mod env;
-pub mod protocols;
 pub mod types;
 pub mod utils;
 
@@ -19,6 +19,15 @@ pub use errors::EbpfError;
 pub use exporter::Exporter;
 pub use probes::Registry as ProbeRegistry;
 pub use skeleton::{CollectorObject, open_object_storage};
+
+pub mod protocol {
+    pub use crate::protocols::ProtoParser;
+    pub use crate::protocols::eth_proto;
+    pub use crate::protocols::ip_proto;
+    pub mod appproto {
+        pub use crate::protocols::app_protos::{HttpFrame, HttpParser};
+    }
+}
 
 pub mod symbol {
     pub use crate::symbolizers::SymbolizerProvider;
@@ -37,7 +46,12 @@ pub mod collector {
             SkbdropCollector, SkbdropConfig, SkbdropConsoleExpoter, SkbdropEvent,
             SkbdropEventDefaultFormatter,
         };
+
+        pub use crate::collectors::{
+            SocketDefaultExporter, SocketTraceCollector, SocketTraceConfig, SocketTraceEvent,
+        };
     }
+
     pub mod cpu {
         pub use crate::collectors::{
             ProfileCollector, ProfileConfig, ProfileEvent, ProfileSimpleExporter,

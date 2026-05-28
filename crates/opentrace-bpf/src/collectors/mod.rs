@@ -2,6 +2,7 @@
 
 mod net;
 mod cpu;
+mod macros;
 
 use crate::EbpfError;
 
@@ -11,7 +12,10 @@ pub trait Collector {
 }
 
 pub use cpu::{ProfileCollector, ProfileConfig, ProfileEvent, ProfileSimpleExporter};
+
 pub use net::{
     SkbdropCollector, SkbdropConfig, SkbdropConsoleExpoter, SkbdropEvent,
     SkbdropEventDefaultFormatter,
 };
+
+pub use net::{SocketDefaultExporter, SocketTraceCollector, SocketTraceConfig, SocketTraceEvent};
