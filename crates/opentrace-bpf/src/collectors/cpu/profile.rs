@@ -6,13 +6,14 @@ use std::os::fd::OwnedFd;
 use libbpf_rs::skel::{OpenSkel, SkelBuilder};
 use libbpf_rs::{Link, OpenObject, PerfBuffer, PerfBufferBuilder};
 
-use crate::bpf::perf_profile::{self, PerfProfileSkel, PerfProfileSkelBuilder};
+use crate::EbpfError;
+use crate::bpf::perf_profile::{self, PerfProfileSkelBuilder};
 use crate::collectors::Collector as CollectorTrait;
-use crate::collectors::macros::{attach_perf_event, define_collector};
+use crate::collectors::macros::attach_perf_event;
+use crate::exporters::{Exporter, helper::load_and_dispatch};
 use crate::skeleton::with_custom_btf_open_opts;
 use crate::utils::procfs;
 use crate::utils::syscall::PerfEventFdBuilder;
-use crate::{EbpfError, Exporter};
 
 //采样最大栈深度
 const SAMPLE_STACK_DEPTH: usize = 6;
@@ -43,6 +44,29 @@ impl Event {
             Self::stack_count(self.ustack_sz, SAMPLE_STACK_DEPTH),
             Self::stack_count(self.kstack_sz, SAMPLE_STACK_DEPTH),
         )
+    }
+}
+
+pub type StackEvent = (Vec<u64>, Vec<u64>);
+
+impl From<Event> for StackEvent {
+    fn from(event: Event) -> Self {
+        let (ustk_size, kstk_size) = event.stack_size();
+        let ustack = if ustk_size != 0 {
+            let mut buffer = Vec::with_capacity(ustk_size);
+            buffer.extend(&mut event.ustack[..ustk_size].iter().rev());
+            buffer
+        } else {
+            vec![]
+        };
+        let kstack = if kstk_size != 0 {
+            let mut buffer = Vec::with_capacity(kstk_size);
+            buffer.extend(&mut event.kstack[..kstk_size].iter().rev());
+            buffer
+        } else {
+            vec![]
+        };
+        (ustack, kstack)
     }
 }
 
@@ -85,7 +109,7 @@ impl<'a> Collector<'a> {
 
         let perf_buffer = PerfBufferBuilder::new(&skel.maps.perf_events)
             .sample_cb(move |_cpu: i32, data: &[u8]| {
-                crate::exporter::load_and_dispatch(data, &mut exporter);
+                load_and_dispatch::<Event, _>(data, &mut exporter);
             })
             .build()?;
 
@@ -157,38 +181,3 @@ impl<'a> CollectorTrait for Collector<'a> {
 
 // 提供默认的Expoter,
 // profile的行为相对比较固定，只需要把用户/内核栈的栈地址发送给用户就可以了,没有多少的format操作
-
-pub type StackEvent = (Vec<u64>, Vec<u64>);
-
-pub struct DefaultExporter {
-    // 第一个Vec是用户栈, 第二个vec是内核栈
-    event_tx: tokio::sync::mpsc::UnboundedSender<StackEvent>,
-}
-
-impl DefaultExporter {
-    pub fn new() -> (Self, tokio::sync::mpsc::UnboundedReceiver<StackEvent>) {
-        let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel::<StackEvent>();
-        (Self { event_tx }, event_rx)
-    }
-}
-impl Exporter<Event> for DefaultExporter {
-    fn dispatch(&mut self, event: Event) {
-        let (ustk_size, kstk_size) = event.stack_size();
-        let ustack = if ustk_size != 0 {
-            let mut buffer = Vec::with_capacity(ustk_size);
-            buffer.extend(&mut event.ustack[..ustk_size].iter().rev());
-            buffer
-        } else {
-            vec![]
-        };
-        let kstack = if kstk_size != 0 {
-            let mut buffer = Vec::with_capacity(kstk_size);
-            buffer.extend(&mut event.kstack[..kstk_size].iter().rev());
-            buffer
-        } else {
-            vec![]
-        };
-
-        let _ = self.event_tx.send((ustack, kstack));
-    }
-}

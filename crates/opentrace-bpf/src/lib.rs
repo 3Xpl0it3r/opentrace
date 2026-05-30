@@ -2,7 +2,7 @@
 
 mod bpf;
 mod errors;
-mod exporter;
+mod exporters;
 mod collectors;
 mod skeleton;
 mod probes;
@@ -16,16 +16,24 @@ pub mod utils;
 
 // 重新导出
 pub use errors::EbpfError;
-pub use exporter::Exporter;
 pub use probes::Registry as ProbeRegistry;
 pub use skeleton::{CollectorObject, open_object_storage};
+
+pub mod exporter {
+    pub use crate::exporters::DefaultStdoutExporter;
+    pub use crate::exporters::Exporter;
+    pub use crate::exporters::SimpleBoundChannelExpoter;
+    pub use crate::exporters::SimpleUnboundChannelExporter;
+}
 
 pub mod protocol {
     pub use crate::protocols::ProtoParser;
     pub use crate::protocols::eth_proto;
     pub use crate::protocols::ip_proto;
     pub mod appproto {
-        pub use crate::protocols::app_protos::{HttpFrame, HttpParser};
+        pub use crate::protocols::app_protos::{
+            HttpDirection, HttpFrame, HttpMethod, HttpParser, MessageType,
+        };
     }
 }
 
@@ -43,8 +51,7 @@ pub mod collector {
     pub use crate::collectors::Collector;
     pub mod net {
         pub use crate::collectors::{
-            SkbdropCollector, SkbdropConfig, SkbdropConsoleExpoter, SkbdropEvent,
-            SkbdropEventDefaultFormatter,
+            SkbdropCollector, SkbdropConfig, SkbdropEvent, SkbdropEventDefaultFormatter,
         };
 
         pub use crate::collectors::{
@@ -54,7 +61,7 @@ pub mod collector {
 
     pub mod cpu {
         pub use crate::collectors::{
-            ProfileCollector, ProfileConfig, ProfileEvent, ProfileSimpleExporter,
+            ProfileCollector, ProfileConfig, ProfileEvent, ProfileStackEvent,
         };
     }
 }

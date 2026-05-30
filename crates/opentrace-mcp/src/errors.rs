@@ -8,6 +8,9 @@ pub enum MCPError {
     #[error("IO Error: {0}")]
     IOErr(#[from] std::io::Error),
 
+    #[error("UTF-8 Error: {0}")]
+    Utf8Err(#[from] std::string::FromUtf8Error),
+
     #[error("Libbpf Error: {0}")]
     BpfErr(#[from] EbpfError),
 
@@ -33,6 +36,11 @@ impl From<MCPError> for ErrorData {
             } => ErrorData {
                 code,
                 message: message.into(),
+                data: None,
+            },
+            MCPError::Utf8Err(e) => ErrorData {
+                code: ErrorCode::INTERNAL_ERROR,
+                message: e.to_string().into(),
                 data: None,
             },
             MCPError::BpfErr(e) => ErrorData {

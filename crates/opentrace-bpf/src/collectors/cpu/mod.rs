@@ -2,6 +2,6 @@
 mod profile;
 
 pub use profile::{
-    Collector as ProfileCollector, Config as ProfileConfig,
-    DefaultExporter as ProfileSimpleExporter, Event as ProfileEvent,
+    Collector as ProfileCollector, Config as ProfileConfig, Event as ProfileEvent,
+    StackEvent as ProfileStackEvent,
 };

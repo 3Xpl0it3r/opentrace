@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use opentrace_bpf::exporter::SimpleUnboundChannelExporter;
 use rmcp::model::{CallToolResult, Content};
 use rmcp::{ErrorData, schemars};
 use serde::Deserialize;
@@ -10,7 +11,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::Duration;
 
 use opentrace_bpf::collector::Collector;
-use opentrace_bpf::collector::cpu::{ProfileCollector, ProfileConfig, ProfileSimpleExporter};
+use opentrace_bpf::collector::cpu::{ProfileCollector, ProfileConfig};
 use opentrace_bpf::symbol::{Source, SymbolizeInput, Symbolizer, SymbolizerProvider};
 
 use crate::errors::MCPError;
@@ -76,7 +77,7 @@ impl PerfMcpToolParams {
 
 pub(crate) async fn tool_handler(params: PerfMcpToolParams) -> Result<CallToolResult, ErrorData> {
     let mut object = opentrace_bpf::open_object_storage();
-    let (exporter, event_rx) = ProfileSimpleExporter::new();
+    let (exporter, event_rx) = SimpleUnboundChannelExporter::new();
     let mut collector = ProfileCollector::new(&mut object, params.to_config(), exporter)
         .map_err(MCPError::from)
         .map_err(ErrorData::from)?;

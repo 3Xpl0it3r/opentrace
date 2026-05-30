@@ -96,33 +96,6 @@ macro_rules! attach_kretprobe {
     }};
 }
 
-// attach_multiple_kprobes!(self, kp_handler, ["tcp_connect", "tcp_close"]);
-macro_rules! attach_multiple_kprobes {
-    ($self:ident, $prog:ident, $funcs:expr) => {{
-        for func in ($funcs).iter() {
-            let func: &str = ::std::convert::AsRef::<str>::as_ref(func);
-            if $self.probe_registry.kprobe_is_available(func) {
-                let link = $self.skel.progs.$prog.attach_kprobe(false, func)?;
-                $self._links.push(link);
-            }
-        }
-    }};
-}
-
-// attach_multiple_kretprobes!(self, kret_handler, ["tcp_connect", "tcp_close"]);
-// 同上，但挂到返回点（kretprobe）。
-macro_rules! attach_multiple_kretprobes {
-    ($self:ident, $prog:ident, $funcs:expr) => {{
-        for func in ($funcs).iter() {
-            let func: &str = ::std::convert::AsRef::<str>::as_ref(func);
-            if $self.probe_registry.kprobe_is_available(func) {
-                let link = $self.skel.progs.$prog.attach_kprobe(true, func)?;
-                $self._links.push(link);
-            }
-        }
-    }};
-}
-
 // attach_perf_event!(self, perf_profile_samples, pfd);
 // 单次 attach；调用方负责遍历 fd 集合。$pfd 实参只要实现
 // std::os::fd::AsRawFd 即可（典型是 &OwnedFd）。
@@ -138,6 +111,6 @@ macro_rules! attach_perf_event {
 }
 
 pub(crate) use {
-    attach_kprobe, attach_kretprobe, attach_multiple_kprobes, attach_multiple_kretprobes,
+    attach_kprobe, attach_kretprobe,
     attach_multiple_tracepoints, attach_perf_event, attach_tracepoint, define_collector,
 };

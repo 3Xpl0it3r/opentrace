@@ -160,28 +160,29 @@ pub mod perf {
 
 pub mod watch {
     use clap::Args;
-    use clap::ValueEnum;
-    use opentrace_bpf::collector::cpu::ProfileConfig;
     use opentrace_bpf::collector::net::SocketTraceConfig;
 
     use super::CliOptsCtx;
 
     #[derive(Debug, clap::Subcommand)]
     pub enum Subcommand {
-        #[command(name = "elastic")]
-        Elastic(ElasticOptions),
+        #[command(name = "http")]
+        Http(HttpOptions),
     }
     #[derive(Debug, Args)]
-    pub struct ElasticOptions {
+    pub struct HttpOptions {
         #[arg(short = 'p', long = "pid")]
         pub pid: u32,
+        #[arg(short = 'v', long = "verbose")]
+        pub verbose: bool,
     }
 
-    impl ElasticOptions {
+    impl HttpOptions {
         pub fn to_config(self, ctx: CliOptsCtx) -> SocketTraceConfig {
             SocketTraceConfig {
                 custom_btf_path: ctx.custom_btf_path,
                 pid: self.pid,
+                verbose: self.verbose,
             }
         }
     }

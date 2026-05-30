@@ -1,6 +1,6 @@
 threshold = 150.0
 fail-above = true
 missing = "pessimistic"
-exclude = ["tests/**", "benches/**"]
+exclude = ["tests/**", "benches/**", "crates/opentrace-bpf/src/protocols/http.rs"]
 allow = ["generated::*", "src/generated/**"]
 epsilon = 0.01

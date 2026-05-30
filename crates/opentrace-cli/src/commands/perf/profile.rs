@@ -6,7 +6,8 @@ use std::fmt;
 use std::time::Duration;
 
 use opentrace_bpf::collector::Collector;
-use opentrace_bpf::collector::cpu::{ProfileCollector, ProfileSimpleExporter};
+use opentrace_bpf::collector::cpu::{ProfileCollector, ProfileStackEvent};
+use opentrace_bpf::exporter::SimpleUnboundChannelExporter;
 use opentrace_bpf::symbol::{Source, SymbolizeInput, Symbolizer, SymbolizerProvider};
 
 use crate::errors::CliError;
@@ -33,7 +34,7 @@ pub async fn run_as_profile(
     symbolizer_provider.register(&source);
     let symbolizer = symbolizer_provider.get_symbolizer(&source);
 
-    let (exporter, mut event_rx) = ProfileSimpleExporter::new();
+    let (exporter, mut event_rx) = SimpleUnboundChannelExporter::<ProfileStackEvent, _>::new();
     let mut collector = ProfileCollector::new(object, options.to_config(ctx), exporter)?;
     collector.attach_probe()?;
 

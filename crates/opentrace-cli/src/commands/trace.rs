@@ -4,7 +4,8 @@ use std::time::Duration;
 
 use opentrace_bpf::ProbeRegistry;
 use opentrace_bpf::collector::Collector;
-use opentrace_bpf::collector::net::{SkbdropCollector, SkbdropConsoleExpoter};
+use opentrace_bpf::collector::net::{SkbdropCollector, SkbdropEventDefaultFormatter};
+use opentrace_bpf::exporter::DefaultStdoutExporter;
 use opentrace_bpf::symbol::{self, Source};
 
 use crate::errors::CliError;
@@ -39,7 +40,7 @@ fn run_as_skbdrop(
         object,
         registry,
         options.to_config(ctx).into(),
-        SkbdropConsoleExpoter::new(symbolizer),
+        DefaultStdoutExporter::with_formatter(SkbdropEventDefaultFormatter::new(symbolizer)),
     )?;
 
     collector.attach_probe()?;

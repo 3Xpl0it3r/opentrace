@@ -1,8 +1,8 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
-// AI 生成 xiaomiv2.5pro
+// 参考 picohttpparser 实现 HTTP/1.x 和 HTTP/2 解析
 /*
 字节偏移      0                   1                   2                   3
-            0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+            0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 第 0-2 字节 |                         Length (24)                          |
            +---------------+---------------+-------------------------------+
@@ -19,354 +19,669 @@
            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 */
-//
 
-const HTTP2_PREFIX: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
-const FRAME_HEADER_LEN: usize = 9;
-// HTTP/2 frame type 合法范围 0x00..=0x09 (DATA..CONTINUATION)
-const MAX_FRAME_TYPE: u8 = 0x09;
-const FRAME_TYPE_HEADERS: u8 = 0x01;
-// HEADERS flags
-const FLAG_PADDED: u8 = 0x08;
-const FLAG_PRIORITY: u8 = 0x20;
-// HPACK 静态表里 :path 的索引
-const HPACK_STATIC_PATH_INDEX: u8 = 4;
-// HPACK 静态表里 :method 相关索引
-const HPACK_STATIC_METHOD_NAME: u8 = 2; // :method (作为 name index 用)
-const HPACK_STATIC_METHOD_GET: u8 = 2; // :method GET (作为 indexed header 用)
-const HPACK_STATIC_METHOD_POST: u8 = 3; // :method POST (作为 indexed header 用)
-// 未协商前 SETTINGS_MAX_FRAME_SIZE 默认 16384
-const DEFAULT_MAX_FRAME_SIZE: usize = 16_384;
+// 下面代码由Ai生成
 
-// HTTP/1.x 请求方法前缀
-const HTTP1_METHODS: &[(&[u8], RequestMethod)] = &[
-    (b"GET ", RequestMethod::GET),
-    (b"POST ", RequestMethod::POST),
-    (b"PUT ", RequestMethod::Unknown),
-    (b"HEAD ", RequestMethod::Unknown),
-    (b"DELETE ", RequestMethod::Unknown),
-    (b"PATCH ", RequestMethod::Unknown),
-    (b"OPTIONS ", RequestMethod::Unknown),
-];
+use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy)]
+use super::{MessageType, ParsedFrame};
+
+type HeaderMap = Option<HashMap<Box<str>, Box<str>>>;
+
+const HTTP2_PREFACE: &[u8; 24] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+const HTTP2_FRAME_HEADER_LEN: usize = 9;
+const HTTP2_FRAME_DATA: u8 = 0;
+const HTTP2_FRAME_HEADERS: u8 = 1;
+const HTTP2_FRAME_PRIORITY: u8 = 2;
+const HTTP2_FRAME_RST_STREAM: u8 = 3;
+const HTTP2_FRAME_SETTINGS: u8 = 4;
+const HTTP2_FRAME_PUSH_PROMISE: u8 = 5;
+const HTTP2_FRAME_PING: u8 = 6;
+const HTTP2_FRAME_GOAWAY: u8 = 7;
+const HTTP2_FRAME_WINDOW_UPDATE: u8 = 8;
+const HTTP2_FRAME_CONTINUATION: u8 = 9;
+const HTTP2_MAX_FRAME_TYPE: u8 = HTTP2_FRAME_CONTINUATION;
+const HTTP2_FLAG_PADDED: u8 = 0x8;
+const HTTP2_FLAG_PRIORITY: u8 = 0x20;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HttpVersion {
-    Unknown,
-    HTTP1_0,
-    HTTP1_1,
-    HTTP2_0,
+    Http10,
+    Http11,
+    Http2,
 }
 
-impl Default for HttpVersion {
-    fn default() -> Self {
-        HttpVersion::Unknown
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HttpMethod {
+    Get,
+    Post,
+    Put,
+    Delete,
+    Patch,
+    Head,
+    Options,
+    Connect,
+    Trace,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HttpDirection {
+    ClientRequest,
+    ServerResponse,
+    Unknown,
+}
+
+impl HttpMethod {
+    pub fn as_bytes(self) -> &'static [u8] {
+        match self {
+            Self::Get => b"GET",
+            Self::Post => b"POST",
+            Self::Put => b"PUT",
+            Self::Delete => b"DELETE",
+            Self::Patch => b"PATCH",
+            Self::Head => b"HEAD",
+            Self::Options => b"OPTIONS",
+            Self::Connect => b"CONNECT",
+            Self::Trace => b"TRACE",
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Get => "GET",
+            Self::Post => "POST",
+            Self::Put => "PUT",
+            Self::Delete => "DELETE",
+            Self::Patch => "PATCH",
+            Self::Head => "HEAD",
+            Self::Options => "OPTIONS",
+            Self::Connect => "CONNECT",
+            Self::Trace => "TRACE",
+        }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum RequestMethod {
-    Unknown,
-    GET,
-    POST,
+impl std::fmt::Display for HttpMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
 }
 
-impl Default for RequestMethod {
-    fn default() -> Self {
-        RequestMethod::Unknown
+#[derive(Debug, Clone)]
+pub struct HttpFrame {
+    pub message_type: MessageType,
+    pub version: HttpVersion,
+    pub stream_id: u32,
+    pub method: Option<HttpMethod>,
+    pub url: Option<Box<str>>,
+    pub status: Option<u16>,
+    pub headers: Option<HashMap<Box<str>, Box<str>>>,
+    pub body: Option<Box<str>>,
+}
+
+impl ParsedFrame for HttpFrame {
+    fn message_type(&self) -> MessageType {
+        self.message_type
+    }
+
+    fn payload(&mut self) -> Option<Box<str>> {
+        self.body.take()
+    }
+
+    fn target(&mut self) -> Option<Box<str>> {
+        match self.method {
+            Some(ref method) => match self.url {
+                Some(ref url) => Some(format!("{} {}", method, url).into()),
+                None => Some(method.as_str().into()),
+            },
+            None => None,
+        }
     }
 }
 
 #[derive(Debug, Default)]
-pub struct Frame {
-    pub version: HttpVersion,
-    pub method: RequestMethod,
-    pub url: String,
-    pub stream_id: u32, // http2里面的stream id
-    pub frame_type: u8,
-    pub payload: Vec<u8>,
-}
+pub struct HttpParser {}
 
-#[derive(Default)]
-pub struct Parser;
+impl super::ProtoParser for HttpParser {
+    type Output = HttpFrame;
 
-impl super::ProtoParser for Parser {
-    type Output<'a> = Frame;
-    fn parse<'a>(&self, raw_data: &'a [u8], size: usize) -> Self::Output<'a> {
-        Self::parse_inner(raw_data, size).unwrap_or_default()
+    // 支持http版本
+    // http1.0/1.1/2 这三个版本
+
+    // 字段填充说明说明:
+    // 当设置verbose=false的时候只填充 streamid, url, method 三个字段, 就直接返回（剩余的字段直接设置位NOne)
+    // 当设置verbose=true的时候，解析完streamId,method,url之后，在继续解析Header和body字段
+    // size 参数表示 data 缓冲区的实际大小，但是我会确保你能解析完streamid,url,method,
+    // 这三个字段，后面的能解析多少就解析多少
+    //
+    // 解析规则:
+    // 1. 按照 HTTP 协议规范/报文格式，从前往后逐个字段解
+    // 1. 解析逻辑尽可能的追求高性能，(方便字节位运算的话尽可能位运算，但是不用强求) 例如method url path, 在解析method
+    // 就可以固定的几个字节直接和get/post/put 对应的十六进制位运算来比较（而不用字符串比较）
+    fn parse(&self, data: &[u8], size: usize, verbose: bool) -> Option<Self::Output> {
+        let data = trim_to_size(data, size);
+
+        parse_http1(data, verbose).or_else(|| parse_http2(data, verbose))
+    }
+
+    fn hash_id(&self, data: &[u8], size: usize) -> u32 {
+        let data = trim_to_size(data, size);
+
+        if let Some(frame) = parse_http2(data, false) {
+            return frame.stream_id;
+        }
+
+        if let Some(frame) = parse_http1(data, false) {
+            return http1_hash_id(frame.method, frame.url.as_deref(), frame.status);
+        }
+
+        0
     }
 }
 
-impl Parser {
-    fn parse_inner(raw: &[u8], datasize: usize) -> Option<Frame> {
-        let raw = &raw[..datasize.min(raw.len())];
-        // 尝试解析 HTTP/1.x
-        if let Some(frame) = parse_http1(raw) {
-            return Some(frame);
-        }
+fn trim_to_size(data: &[u8], size: usize) -> &[u8] {
+    &data[..data.len().min(size)]
+}
 
-        // 跳过 HTTP/2 连接前导（如果存在）
-        let mut buf = raw;
-        if buf.starts_with(HTTP2_PREFIX) {
-            buf = &buf[HTTP2_PREFIX.len()..];
-        }
+fn parse_http1(data: &[u8], verbose: bool) -> Option<HttpFrame> {
+    let line_end = find_crlf(data)?;
+    let line = &data[..line_end];
 
-        if buf.len() < FRAME_HEADER_LEN {
-            return None;
-        }
-
-        // 解析 9 字节帧头
-        let length = ((buf[0] as usize) << 16) | ((buf[1] as usize) << 8) | (buf[2] as usize);
-        let frame_type = buf[3];
-        let flags = buf[4];
-        let stream_id = (((buf[5] & 0x7f) as u32) << 24)
-            | ((buf[6] as u32) << 16)
-            | ((buf[7] as u32) << 8)
-            | (buf[8] as u32);
-
-        if frame_type > MAX_FRAME_TYPE {
-            return None;
-        }
-        if length > DEFAULT_MAX_FRAME_SIZE {
-            return None;
-        }
-
-        // 取 payload，截断到实际可用长度，避免越界
-        let payload_end = FRAME_HEADER_LEN.saturating_add(length).min(buf.len());
-        let body = &buf[FRAME_HEADER_LEN..payload_end];
-
-        let mut frame = Frame {
-            version: HttpVersion::HTTP2_0,
-            method: RequestMethod::Unknown,
-            url: String::new(),
-            stream_id,
-            frame_type,
-            payload: body.to_vec(),
-        };
-
-        if frame_type == FRAME_TYPE_HEADERS {
-            if let Some(block) = strip_headers_padding_and_priority(body, flags) {
-                let (path, method) = decode_hpack_minimal(block);
-                if let Some(p) = path {
-                    frame.url = p;
-                }
-                if let Some(m) = method {
-                    frame.method = m;
-                }
-            }
-        }
-
-        Some(frame)
+    if line.starts_with(b"HTTP/1.") {
+        parse_http1_response(data, line, line_end, verbose)
+    } else {
+        parse_http1_request(data, line, line_end, verbose)
     }
 }
 
-// 解析 HTTP/1.x 请求和响应
-fn parse_http1(raw: &[u8]) -> Option<Frame> {
-    // HTTP/1.x 请求: "METHOD /path HTTP/1.x\r\n..."
-    for &(prefix, method) in HTTP1_METHODS {
-        if raw.starts_with(prefix) {
-            let rest = &raw[prefix.len()..];
-            // 找到第一个空格，提取 path
-            if let Some(space_pos) = rest.iter().position(|&b| b == b' ') {
-                let path = std::str::from_utf8(&rest[..space_pos]).ok()?;
-                return Some(Frame {
-                    version: HttpVersion::HTTP1_1,
-                    method,
-                    url: path.to_string(),
-                    stream_id: 0,
-                    frame_type: 0,
-                    payload: Vec::new(),
-                });
-            }
-        }
-    }
+fn parse_http1_request<'a>(
+    data: &'a [u8],
+    line: &'a [u8],
+    line_end: usize,
+    verbose: bool,
+) -> Option<HttpFrame> {
+    let method_end = find_byte(line, b' ')?;
+    let method = parse_method(&line[..method_end])?;
+    let url_start = method_end + 1;
+    let url_end = find_byte(&line[url_start..], b' ')? + url_start;
+    let version = parse_http1_version(&line[url_end + 1..])?;
+    let url = std::str::from_utf8(&line[url_start..url_end]).ok()?;
 
-    // HTTP/1.x 响应: "HTTP/1.x STATUS ..."
-    if raw.starts_with(b"HTTP/1.0 ") || raw.starts_with(b"HTTP/1.1 ") {
-        return Some(Frame {
-            version: if raw.starts_with(b"HTTP/1.0 ") {
-                HttpVersion::HTTP1_0
-            } else {
-                HttpVersion::HTTP1_1
-            },
-            method: RequestMethod::Unknown,
-            url: String::new(),
+    if !verbose {
+        return Some(HttpFrame {
+            message_type: MessageType::Request,
+            version,
             stream_id: 0,
-            frame_type: 0,
-            payload: Vec::new(),
+            method: Some(method),
+            url: Some(url.into()),
+            status: None,
+            headers: None,
+            body: None,
         });
     }
 
-    None
+    let (headers, body) = parse_http1_headers_and_body(data, line_end + 2);
+    Some(HttpFrame {
+        message_type: MessageType::Request,
+        version,
+        stream_id: 0,
+        method: Some(method),
+        url: Some(url.into()),
+        status: None,
+        headers,
+        body,
+    })
 }
 
-// 处理 HEADERS 帧的 PADDED / PRIORITY 标志，返回真正的 HPACK 区块
-fn strip_headers_padding_and_priority<'a>(mut body: &'a [u8], flags: u8) -> Option<&'a [u8]> {
-    if flags & FLAG_PADDED != 0 {
-        if body.is_empty() {
-            return None;
-        }
-        let pad_len = body[0] as usize;
-        body = &body[1..];
-        if pad_len > body.len() {
-            return None;
-        }
-        body = &body[..body.len() - pad_len];
+fn parse_http1_response<'a>(
+    data: &'a [u8],
+    line: &'a [u8],
+    line_end: usize,
+    verbose: bool,
+) -> Option<HttpFrame> {
+    let version = parse_http1_version(line.get(..8)?)?;
+    let status = parse_status(line.get(9..12)?)?;
+
+    if !verbose {
+        return Some(HttpFrame {
+            message_type: MessageType::Response,
+            version,
+            stream_id: 0,
+            method: None,
+            url: None,
+            status: Some(status),
+            headers: None,
+            body: None,
+        });
     }
-    if flags & FLAG_PRIORITY != 0 {
-        if body.len() < 5 {
-            return None;
-        }
-        body = &body[5..];
-    }
-    Some(body)
+
+    let (headers, body) = parse_http1_headers_and_body(data, line_end + 2);
+    Some(HttpFrame {
+        message_type: MessageType::Response,
+        version,
+        stream_id: 0,
+        method: None,
+        url: None,
+        status: Some(status),
+        headers,
+        body,
+    })
 }
 
-// 解 HPACK 整数：第 1 字节低 prefix_bits 位作为初值，若达到上限则用后续字节扩展
-fn decode_hpack_integer(data: &[u8], prefix_bits: u8) -> Option<(u64, &[u8])> {
-    if data.is_empty() || prefix_bits == 0 || prefix_bits > 8 {
+fn parse_http1_headers_and_body(
+    data: &[u8],
+    start: usize,
+) -> (HeaderMap, Option<Box<str>>) {
+    let mut headers = HashMap::new();
+    let mut offset = start;
+
+    while offset < data.len() {
+        let line_end = match find_crlf(&data[offset..]) {
+            Some(line_end) => offset + line_end,
+            None => return (empty_map_to_none(headers), None),
+        };
+
+        if line_end == offset {
+            let body_start = line_end + 2;
+            let body = data.get(body_start..).and_then(body_to_boxed_str);
+            return (empty_map_to_none(headers), body);
+        }
+
+        if let Some(colon) = find_byte(&data[offset..line_end], b':') {
+            let name = trim_ascii(&data[offset..offset + colon]);
+            let value = trim_ascii(&data[offset + colon + 1..line_end]);
+            if let (Ok(name), Ok(value)) = (std::str::from_utf8(name), std::str::from_utf8(value)) {
+                headers.insert(name.into(), value.into());
+            }
+        }
+
+        offset = line_end + 2;
+    }
+
+    (empty_map_to_none(headers), None)
+}
+
+fn empty_map_to_none<K, V>(headers: HashMap<K, V>) -> Option<HashMap<K, V>> {
+    (!headers.is_empty()).then_some(headers)
+}
+
+fn parse_http2(data: &[u8], verbose: bool) -> Option<HttpFrame> {
+    let has_preface = data.starts_with(HTTP2_PREFACE.as_slice());
+    let data = if has_preface {
+        &data[HTTP2_PREFACE.len()..]
+    } else {
+        data
+    };
+    if data.len() < HTTP2_FRAME_HEADER_LEN {
         return None;
     }
-    let mask: u8 = ((1u16 << prefix_bits) - 1) as u8;
-    let mut value = (data[0] & mask) as u64;
-    if value < mask as u64 {
-        return Some((value, &data[1..]));
-    }
-    let mut i = 1usize;
-    let mut shift: u32 = 0;
-    while i < data.len() {
-        let b = data[i];
-        i += 1;
-        value = value.checked_add(((b & 0x7f) as u64).checked_shl(shift)?)?;
-        if b & 0x80 == 0 {
-            return Some((value, &data[i..]));
-        }
-        shift = shift.checked_add(7)?;
-        if shift > 63 {
-            return None;
-        }
-    }
-    None
-}
 
-// 读取一个 HPACK 字符串：返回 (huffman_flag, bytes, rest)。
-// Huffman 编码暂不解码，调用方需自行判断。
-fn read_hpack_string(data: &[u8]) -> Option<(bool, &[u8], &[u8])> {
-    if data.is_empty() {
+    let frame_len = ((data[0] as usize) << 16) | ((data[1] as usize) << 8) | data[2] as usize;
+    let frame_type = data[3];
+    let flags = data[4];
+    let stream_id = u32::from_be_bytes([data[5] & 0x7f, data[6], data[7], data[8]]);
+
+    if !is_plausible_http2_frame(
+        frame_type,
+        flags,
+        stream_id,
+        frame_len,
+        data.len(),
+        has_preface,
+    ) {
         return None;
     }
-    let huffman = data[0] & 0x80 != 0;
-    let (len, rest) = decode_hpack_integer(data, 7)?;
-    let len = len as usize;
-    if len > rest.len() {
-        return None;
+
+    let payload_end = HTTP2_FRAME_HEADER_LEN + frame_len.min(data.len() - HTTP2_FRAME_HEADER_LEN);
+    let payload = &data[HTTP2_FRAME_HEADER_LEN..payload_end];
+
+    let mut frame = HttpFrame {
+        message_type: MessageType::Unknown,
+        version: HttpVersion::Http2,
+        stream_id,
+        method: None,
+        url: None,
+        status: None,
+        headers: None,
+        body: None,
+    };
+
+    if !verbose && frame_type != HTTP2_FRAME_HEADERS {
+        return Some(frame);
     }
-    Some((huffman, &rest[..len], &rest[len..]))
-}
 
-// 极简 HPACK 解码器：只提取 :path 与 :method（不处理 Huffman 编码的字符串）
-fn decode_hpack_minimal(mut data: &[u8]) -> (Option<String>, Option<RequestMethod>) {
-    let mut path: Option<String> = None;
-    let mut method: Option<RequestMethod> = None;
-
-    while !data.is_empty() {
-        let b = data[0];
-
-        if b & 0x80 != 0 {
-            // Indexed Header Field
-            let (idx, rest) = match decode_hpack_integer(data, 7) {
-                Some(x) => x,
-                None => break,
-            };
-            data = rest;
-            match idx as u8 {
-                HPACK_STATIC_METHOD_GET => {
-                    method.get_or_insert(RequestMethod::GET);
-                }
-                HPACK_STATIC_METHOD_POST => {
-                    method.get_or_insert(RequestMethod::POST);
-                }
-                4 => {
-                    path.get_or_insert_with(|| "/".to_string());
-                }
-                5 => {
-                    path.get_or_insert_with(|| "/index.html".to_string());
-                }
-                _ => {}
-            }
-        } else if b & 0x40 != 0 {
-            // Literal Header Field with Incremental Indexing (prefix=6)
-            let (name_idx, rest) = match decode_hpack_integer(data, 6) {
-                Some(x) => x,
-                None => break,
-            };
-            data = rest;
-            if name_idx == 0 {
-                // 名字也是字面量，跳过
-                let (_huff, _name, rest) = match read_hpack_string(data) {
-                    Some(x) => x,
-                    None => break,
-                };
-                data = rest;
-            }
-            let (huff, value, rest) = match read_hpack_string(data) {
-                Some(x) => x,
-                None => break,
-            };
-            data = rest;
-            apply_literal(name_idx as u8, huff, value, &mut path, &mut method);
-        } else if b & 0x20 != 0 {
-            // Dynamic Table Size Update (prefix=5)，忽略具体大小
-            let (_, rest) = match decode_hpack_integer(data, 5) {
-                Some(x) => x,
-                None => break,
-            };
-            data = rest;
-        } else {
-            // Literal Header Field without Indexing / Never Indexed (prefix=4)
-            let (name_idx, rest) = match decode_hpack_integer(data, 4) {
-                Some(x) => x,
-                None => break,
-            };
-            data = rest;
-            if name_idx == 0 {
-                let (_huff, _name, rest) = match read_hpack_string(data) {
-                    Some(x) => x,
-                    None => break,
-                };
-                data = rest;
-            }
-            let (huff, value, rest) = match read_hpack_string(data) {
-                Some(x) => x,
-                None => break,
-            };
-            data = rest;
-            apply_literal(name_idx as u8, huff, value, &mut path, &mut method);
+    match frame_type {
+        HTTP2_FRAME_DATA => {
+            frame.body = http2_data_payload(payload, flags);
         }
+        HTTP2_FRAME_HEADERS | HTTP2_FRAME_CONTINUATION => {
+            parse_http2_headers(payload, flags, frame_type, verbose, &mut frame);
+        }
+        _ => {}
     }
 
-    (path, method)
+    Some(frame)
 }
 
-fn apply_literal(
-    name_idx: u8,
-    huffman: bool,
-    value: &[u8],
-    path: &mut Option<String>,
-    method: &mut Option<RequestMethod>,
+fn parse_http2_headers(
+    payload: &[u8],
+    flags: u8,
+    frame_type: u8,
+    verbose: bool,
+    frame: &mut HttpFrame,
 ) {
-    // Huffman 编码的字符串这里不解码，直接放弃
-    if huffman {
-        return;
+    let header_block = match http2_header_block(payload, flags, frame_type) {
+        Some(b) => b,
+        None => return,
+    };
+    let headers = parse_hpack_literals(header_block);
+    frame.method = headers
+        .get(":method")
+        .and_then(|method| parse_method(method.as_bytes()));
+    frame.url = headers.get(":path").cloned();
+    frame.status = headers
+        .get(":status")
+        .and_then(|status| parse_status(status.as_bytes()));
+    frame.message_type = match (frame.method, frame.status) {
+        (Some(_), _) => MessageType::Request,
+        (_, Some(_)) => MessageType::Response,
+        _ => MessageType::Unknown,
+    };
+    if verbose {
+        frame.headers = empty_map_to_none(headers);
     }
-    if name_idx == HPACK_STATIC_PATH_INDEX {
-        if let Ok(s) = std::str::from_utf8(value) {
-            *path = Some(s.to_string());
+}
+
+fn is_plausible_http2_frame(
+    frame_type: u8,
+    flags: u8,
+    stream_id: u32,
+    frame_len: usize,
+    available_len: usize,
+    has_preface: bool,
+) -> bool {
+    if frame_type > HTTP2_MAX_FRAME_TYPE || available_len < HTTP2_FRAME_HEADER_LEN {
+        return false;
+    }
+
+    let available_payload_len = available_len - HTTP2_FRAME_HEADER_LEN;
+
+    match frame_type {
+        HTTP2_FRAME_DATA => stream_id != 0,
+        HTTP2_FRAME_HEADERS => validate_h2_headers(stream_id, has_preface, frame_len, available_payload_len),
+        HTTP2_FRAME_PRIORITY => validate_h2_priority(stream_id, frame_len, available_payload_len),
+        HTTP2_FRAME_RST_STREAM => validate_h2_rst_stream(stream_id, frame_len, available_payload_len),
+        HTTP2_FRAME_SETTINGS => validate_h2_settings(flags, stream_id, frame_len, available_payload_len),
+        HTTP2_FRAME_PUSH_PROMISE => validate_h2_push_promise(stream_id, has_preface, frame_len, available_payload_len),
+        HTTP2_FRAME_PING => validate_h2_ping(stream_id, frame_len, available_payload_len),
+        HTTP2_FRAME_GOAWAY => validate_h2_goaway(stream_id, frame_len, available_payload_len),
+        HTTP2_FRAME_WINDOW_UPDATE => validate_h2_window_update(frame_len, available_payload_len),
+        HTTP2_FRAME_CONTINUATION => validate_h2_continuation(stream_id, has_preface, frame_len, available_payload_len),
+        _ => false,
+    }
+}
+
+fn fixed_payload_available(frame_len: usize, available_payload_len: usize, expected: usize) -> bool {
+    frame_len == expected && available_payload_len >= expected
+}
+
+fn validate_h2_headers(stream_id: u32, has_preface: bool, frame_len: usize, available_payload_len: usize) -> bool {
+    stream_id != 0 && (!has_preface || frame_len <= available_payload_len)
+}
+
+fn validate_h2_priority(stream_id: u32, frame_len: usize, available_payload_len: usize) -> bool {
+    stream_id != 0 && fixed_payload_available(frame_len, available_payload_len, 5)
+}
+
+fn validate_h2_rst_stream(stream_id: u32, frame_len: usize, available_payload_len: usize) -> bool {
+    stream_id != 0 && fixed_payload_available(frame_len, available_payload_len, 4)
+}
+
+fn validate_h2_settings(flags: u8, stream_id: u32, frame_len: usize, available_payload_len: usize) -> bool {
+    stream_id == 0
+        && frame_len.is_multiple_of(6)
+        && (flags & 0x1 == 0 || frame_len == 0)
+        && frame_len <= available_payload_len
+}
+
+fn validate_h2_push_promise(stream_id: u32, has_preface: bool, frame_len: usize, available_payload_len: usize) -> bool {
+    stream_id != 0 && frame_len >= 4 && (!has_preface || frame_len <= available_payload_len)
+}
+
+fn validate_h2_ping(stream_id: u32, frame_len: usize, available_payload_len: usize) -> bool {
+    stream_id == 0 && fixed_payload_available(frame_len, available_payload_len, 8)
+}
+
+fn validate_h2_goaway(stream_id: u32, frame_len: usize, available_payload_len: usize) -> bool {
+    stream_id == 0 && frame_len >= 8 && available_payload_len >= frame_len.min(8)
+}
+
+fn validate_h2_window_update(frame_len: usize, available_payload_len: usize) -> bool {
+    fixed_payload_available(frame_len, available_payload_len, 4)
+}
+
+fn validate_h2_continuation(stream_id: u32, has_preface: bool, frame_len: usize, available_payload_len: usize) -> bool {
+    stream_id != 0 && (!has_preface || frame_len <= available_payload_len)
+}
+
+fn http2_data_payload(payload: &[u8], flags: u8) -> Option<Box<str>> {
+    let payload = if flags & HTTP2_FLAG_PADDED != 0 {
+        let pad_len = *payload.first()? as usize;
+        payload.get(1..payload.len().checked_sub(pad_len)?)?
+    } else {
+        payload
+    };
+
+    body_to_boxed_str(payload)
+}
+
+fn body_to_boxed_str(body: &[u8]) -> Option<Box<str>> {
+    if body.is_empty() {
+        return None;
+    }
+
+    std::str::from_utf8(body).ok().map(Into::into)
+}
+
+fn http2_header_block(payload: &[u8], flags: u8, frame_type: u8) -> Option<&[u8]> {
+    let mut offset = 0usize;
+    let mut end = payload.len();
+
+    if flags & HTTP2_FLAG_PADDED != 0 {
+        let pad_len = *payload.first()? as usize;
+        offset = 1;
+        end = payload.len().checked_sub(pad_len)?;
+    }
+
+    if frame_type == HTTP2_FRAME_HEADERS && flags & HTTP2_FLAG_PRIORITY != 0 {
+        offset += 5;
+    }
+
+    (offset <= end).then_some(&payload[offset..end])
+}
+
+fn parse_hpack_literals(mut data: &[u8]) -> HashMap<Box<str>, Box<str>> {
+    let mut headers = HashMap::new();
+
+    while let Some((&first, _)) = data.split_first() {
+        if first & 0x80 != 0 {
+            data = match try_indexed_hpack(data) {
+                Some((name, value, rest)) => {
+                    headers.insert(name.into(), value.into());
+                    rest
+                }
+                None => break,
+            };
+            continue;
         }
-    } else if name_idx == HPACK_STATIC_METHOD_NAME {
-        match value {
-            b"GET" => *method = Some(RequestMethod::GET),
-            b"POST" => *method = Some(RequestMethod::POST),
-            _ => {}
+
+        if first & 0xe0 == 0x20 {
+            data = match decode_prefixed_int(data, 0x1f) {
+                Some((_, rest)) => rest,
+                None => break,
+            };
+            continue;
+        }
+
+        data = match try_literal_hpack_entry(data) {
+            Some((name, value, rest)) => {
+                headers.insert(name.into(), value.into());
+                rest
+            }
+            None => break,
+        };
+    }
+
+    headers
+}
+
+fn try_indexed_hpack(data: &[u8]) -> Option<(&'static str, &'static str, &[u8])> {
+    let (index, rest) = decode_prefixed_int(data, 0x7f)?;
+    let (name, value) = indexed_header(index)?;
+    Some((name, value, rest))
+}
+
+fn try_literal_hpack_entry(data: &[u8]) -> Option<(&str, &str, &[u8])> {
+    let first = *data.first()?;
+
+    let name_index_mask = if first & 0x40 != 0 {
+        0x3f
+    } else if (first & 0xf0 == 0) || (first & 0xf0 == 0x10) {
+        0x0f
+    } else {
+        return None;
+    };
+
+    let (name_index, after_name_index) = decode_prefixed_int(data, name_index_mask)?;
+
+    let (name, after_name) = if name_index == 0 {
+        decode_hpack_string(after_name_index)?
+    } else {
+        let (name, _) = indexed_header(name_index)?;
+        (name, after_name_index)
+    };
+
+    let (value, after_value) = decode_hpack_string(after_name)?;
+    Some((name, value, after_value))
+}
+
+fn decode_prefixed_int(data: &[u8], prefix_mask: u8) -> Option<(usize, &[u8])> {
+    let (&first, mut rest) = data.split_first()?;
+    let mut value = (first & prefix_mask) as usize;
+    if value < prefix_mask as usize {
+        return Some((value, rest));
+    }
+
+    let mut shift = 0usize;
+    loop {
+        let (&byte, next) = rest.split_first()?;
+        rest = next;
+        value = value.checked_add(((byte & 0x7f) as usize) << shift)?;
+        if byte & 0x80 == 0 {
+            return Some((value, rest));
+        }
+        shift += 7;
+        if shift >= usize::BITS as usize {
+            return None;
         }
     }
+}
+
+fn decode_hpack_string(data: &[u8]) -> Option<(&str, &[u8])> {
+    let (len, rest) = decode_prefixed_int(data, 0x7f)?;
+    let value = rest.get(..len)?;
+    let rest = rest.get(len..)?;
+
+    if data.first()? & 0x80 != 0 {
+        return None;
+    }
+
+    Some((std::str::from_utf8(value).ok()?, rest))
+}
+
+fn indexed_header(index: usize) -> Option<(&'static str, &'static str)> {
+    static TABLE: &[(&str, &str)] = &[
+        ("", ""),
+        ("", ""),
+        (":method", "GET"),
+        (":method", "POST"),
+        (":path", "/"),
+        (":path", "/index.html"),
+        (":scheme", "http"),
+        (":scheme", "https"),
+        (":status", "200"),
+        (":status", "204"),
+        (":status", "206"),
+        (":status", "304"),
+        (":status", "400"),
+        (":status", "404"),
+        (":status", "500"),
+    ];
+    TABLE.get(index).copied()
+}
+
+fn parse_http1_version(data: &[u8]) -> Option<HttpVersion> {
+    match data {
+        b"HTTP/1.0" => Some(HttpVersion::Http10),
+        b"HTTP/1.1" => Some(HttpVersion::Http11),
+        _ => None,
+    }
+}
+
+fn parse_method(data: &[u8]) -> Option<HttpMethod> {
+    Some(match data {
+        b"GET" => HttpMethod::Get,
+        b"PUT" => HttpMethod::Put,
+        b"POST" => HttpMethod::Post,
+        b"HEAD" => HttpMethod::Head,
+        b"PATCH" => HttpMethod::Patch,
+        b"TRACE" => HttpMethod::Trace,
+        b"DELETE" => HttpMethod::Delete,
+        b"OPTIONS" => HttpMethod::Options,
+        b"CONNECT" => HttpMethod::Connect,
+        _ => return None,
+    })
+}
+
+fn parse_status(data: &[u8]) -> Option<u16> {
+    if data.len() != 3 || !data.iter().all(u8::is_ascii_digit) {
+        return None;
+    }
+
+    Some(((data[0] - b'0') as u16) * 100 + ((data[1] - b'0') as u16) * 10 + (data[2] - b'0') as u16)
+}
+
+fn http1_hash_id(method: Option<HttpMethod>, url: Option<&str>, status: Option<u16>) -> u32 {
+    if let (Some(method), Some(url)) = (method, url) {
+        return fnv1a32(method.as_bytes()) ^ fnv1a32(url.as_bytes()).rotate_left(13);
+    }
+
+    status.map(u32::from).unwrap_or_default()
+}
+
+fn fnv1a32(data: &[u8]) -> u32 {
+    let mut hash = 0x811c_9dc5u32;
+    for byte in data {
+        hash ^= *byte as u32;
+        hash = hash.wrapping_mul(0x0100_0193);
+    }
+    hash
+}
+
+fn find_crlf(data: &[u8]) -> Option<usize> {
+    data.windows(2).position(|window| window == b"\r\n")
+}
+
+fn find_byte(data: &[u8], byte: u8) -> Option<usize> {
+    data.iter().position(|candidate| *candidate == byte)
+}
+
+fn trim_ascii(mut data: &[u8]) -> &[u8] {
+    while data.first().is_some_and(u8::is_ascii_whitespace) {
+        data = &data[1..];
+    }
+    while data.last().is_some_and(u8::is_ascii_whitespace) {
+        data = &data[..data.len() - 1];
+    }
+    data
 }

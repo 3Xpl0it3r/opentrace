@@ -4,14 +4,14 @@ use std::mem::MaybeUninit;
 use std::{mem, slice};
 
 use libbpf_rs::skel::{OpenSkel as _, SkelBuilder};
-use libbpf_rs::{Link, MapCore, MapFlags, OpenObject, PerfBuffer, PerfBufferBuilder};
+use libbpf_rs::{MapCore, MapFlags, OpenObject, PerfBufferBuilder};
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 
-use crate::Exporter;
 use crate::bpf::skbdrop::{SkbdropSkel, SkbdropSkelBuilder};
 use crate::env;
 use crate::errors::EbpfError;
+use crate::exporters::{Exporter, helper::load_and_dispatch};
 use crate::format::StreamFormatter;
 use crate::probes::Registry as ProbeRegistry;
 use crate::skeleton::with_custom_btf_open_opts;
@@ -19,7 +19,7 @@ use crate::symbolizers::*;
 use crate::utils::net as net_utils;
 
 use crate::collectors::macros::{
-    attach_kprobe, attach_kretprobe, attach_tracepoint, define_collector,
+    attach_kprobe, attach_kretprobe, define_collector,
 };
 use crate::types::net::{AddrV4, AddrV6, L2Info, L3Info, L4Info};
 
@@ -38,7 +38,7 @@ const NF_HOOK_SLOW: &str = "nf_hook_slow";
 pub const DROP_SRC_KFREE_SKB: u8 = 1;
 pub const DROP_SRC_NF_HOOK: u8 = 2;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct Event {
     pub l2_info: L2Info,
@@ -188,7 +188,7 @@ impl<'a> Collector<'a> {
 
         let perf_buffer = PerfBufferBuilder::new(&skel.maps.perf_events)
             .sample_cb(move |_cpu: i32, data: &[u8]| {
-                crate::exporter::load_and_dispatch(data, &mut exporter);
+                load_and_dispatch::<Event, _>(data, &mut exporter);
             })
             .build()?;
 
@@ -246,7 +246,16 @@ pub struct DefaultFormatter<'a> {
     source: Source<'a>,
 }
 
-impl<'a> StreamFormatter<Event> for DefaultFormatter<'a> {
+impl<'a> DefaultFormatter<'a> {
+    pub fn new(symbolizer: &'a dyn Symbolizer) -> Self {
+        Self {
+            symbolizer,
+            source: Source::Kernel,
+        }
+    }
+}
+
+impl StreamFormatter<Event> for DefaultFormatter<'_> {
     fn format<W: std::io::Write>(&self, w: &mut W, event: &Event) -> Result<(), std::io::Error> {
         write_endpoints(w, event)?;
         writeln!(w, "reason: {}", event.drop_source_str())?;
@@ -280,7 +289,7 @@ fn write_endpoints<W: std::io::Write>(w: &mut W, event: &Event) -> Result<(), st
     }
 }
 
-impl<'a> DefaultFormatter<'a> {
+impl DefaultFormatter<'_> {
     fn write_stack<W: std::io::Write>(
         &self,
         w: &mut W,
@@ -299,30 +308,5 @@ impl<'a> DefaultFormatter<'a> {
             writeln!(w, "    {}", symb.name)?;
         }
         Ok(())
-    }
-}
-
-// 用于debug ，默认实现
-pub struct DefaultConsoleExporter<'a> {
-    formatter: DefaultFormatter<'a>,
-}
-
-impl<'a> DefaultConsoleExporter<'a> {
-    pub fn new(symbolizer: &'a dyn Symbolizer) -> Self {
-        Self {
-            formatter: DefaultFormatter {
-                symbolizer,
-                source: Source::Kernel,
-            },
-        }
-    }
-}
-
-impl Exporter<Event> for DefaultConsoleExporter<'_> {
-    fn dispatch(&mut self, event: Event) {
-        let mut stdout = std::io::stdout().lock();
-        if let Err(err) = self.formatter.format(&mut stdout, &event) {
-            eprintln!("failed to format skbdrop event: {err}");
-        }
     }
 }

@@ -24,13 +24,33 @@ pub union Addr {
     pub v6addr: AddrV6,
 }
 
-#[derive(Clone, Copy)]
+impl std::hash::Hash for Addr {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        unsafe {
+            // 使用 v6addr 的内存表示进行哈希，覆盖 v4 和 v6 两种情况
+            self.v6addr.upper.hash(state);
+            self.v6addr.lower.hash(state);
+        }
+    }
+}
+
+impl PartialEq for Addr {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe {
+            self.v6addr.upper == other.v6addr.upper && self.v6addr.lower == other.v6addr.lower
+        }
+    }
+}
+
+impl Eq for Addr {}
+
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct L2Info {
     pub eth_proto: u16,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct L3Info {
     pub saddr: Addr,
@@ -40,7 +60,7 @@ pub struct L3Info {
     pub l4_proto: u8,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct L4Info {
     pub sport: u16,
@@ -196,5 +216,33 @@ impl<'de> Deserialize<'de> for L4Info {
         D: serde::Deserializer<'de>,
     {
         todo!()
+    }
+}
+
+impl fmt::Debug for Addr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        unsafe {
+            // 默认显示为 v6addr，因为其内存布局覆盖全部 16 字节
+            f.debug_struct("Addr")
+                .field("v6addr", &self.v6addr)
+                .finish()
+        }
+    }
+}
+
+impl fmt::Debug for AddrV6 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
+            (self.upper >> 48) & 0xFFFF,
+            (self.upper >> 32) & 0xFFFF,
+            (self.upper >> 16) & 0xFFFF,
+            self.upper & 0xFFFF,
+            (self.lower >> 48) & 0xFFFF,
+            (self.lower >> 32) & 0xFFFF,
+            (self.lower >> 16) & 0xFFFF,
+            self.lower & 0xFFFF,
+        )
     }
 }
