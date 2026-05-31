@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'OpenTrace',
-  description: '基于 eBPF 的 Linux 内核全栈可观测工具',
+  description: '基于 eBPF 的 Linux 内核可观测工具，支持命令行与 MCP 服务调用，具备可扩展的应用层协议解析框架，允许用户自定义开发协议解析器。',
   base: '/opentrace/',
 
   head: [

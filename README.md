@@ -13,7 +13,7 @@
 
 [![Documentation](https://img.shields.io/badge/docs-VitePress-blue?logo=vitepress)](https://3Xpl0it3r.github.io/opentrace/)
 
-基于 eBPF 的 Linux 内核全栈可观测工具，提供网络诊断、CPU 性能剖析、IO 诊断等核心能力，支持命令行与 MCP 服务两种调用方式，具备可扩展的应用层协议解析框架，允许用户自定义开发协议解析器。
+基于 eBPF 的 Linux 内核可观测工具，支持命令行与 MCP 服务调用，具备可扩展的应用层协议解析框架，允许用户自定义开发协议解析器。
 
 📖 **[完整文档](https://3Xpl0it3r.github.io/opentrace/)**
 
