@@ -268,10 +268,7 @@ fn parse_http1_response<'a>(
     })
 }
 
-fn parse_http1_headers_and_body(
-    data: &[u8],
-    start: usize,
-) -> (HeaderMap, Option<Box<str>>) {
+fn parse_http1_headers_and_body(data: &[u8], start: usize) -> (HeaderMap, Option<Box<str>>) {
     let mut headers = HashMap::new();
     let mut offset = start;
 
@@ -408,24 +405,43 @@ fn is_plausible_http2_frame(
 
     match frame_type {
         HTTP2_FRAME_DATA => stream_id != 0,
-        HTTP2_FRAME_HEADERS => validate_h2_headers(stream_id, has_preface, frame_len, available_payload_len),
+        HTTP2_FRAME_HEADERS => {
+            validate_h2_headers(stream_id, has_preface, frame_len, available_payload_len)
+        }
         HTTP2_FRAME_PRIORITY => validate_h2_priority(stream_id, frame_len, available_payload_len),
-        HTTP2_FRAME_RST_STREAM => validate_h2_rst_stream(stream_id, frame_len, available_payload_len),
-        HTTP2_FRAME_SETTINGS => validate_h2_settings(flags, stream_id, frame_len, available_payload_len),
-        HTTP2_FRAME_PUSH_PROMISE => validate_h2_push_promise(stream_id, has_preface, frame_len, available_payload_len),
+        HTTP2_FRAME_RST_STREAM => {
+            validate_h2_rst_stream(stream_id, frame_len, available_payload_len)
+        }
+        HTTP2_FRAME_SETTINGS => {
+            validate_h2_settings(flags, stream_id, frame_len, available_payload_len)
+        }
+        HTTP2_FRAME_PUSH_PROMISE => {
+            validate_h2_push_promise(stream_id, has_preface, frame_len, available_payload_len)
+        }
         HTTP2_FRAME_PING => validate_h2_ping(stream_id, frame_len, available_payload_len),
         HTTP2_FRAME_GOAWAY => validate_h2_goaway(stream_id, frame_len, available_payload_len),
         HTTP2_FRAME_WINDOW_UPDATE => validate_h2_window_update(frame_len, available_payload_len),
-        HTTP2_FRAME_CONTINUATION => validate_h2_continuation(stream_id, has_preface, frame_len, available_payload_len),
+        HTTP2_FRAME_CONTINUATION => {
+            validate_h2_continuation(stream_id, has_preface, frame_len, available_payload_len)
+        }
         _ => false,
     }
 }
 
-fn fixed_payload_available(frame_len: usize, available_payload_len: usize, expected: usize) -> bool {
+fn fixed_payload_available(
+    frame_len: usize,
+    available_payload_len: usize,
+    expected: usize,
+) -> bool {
     frame_len == expected && available_payload_len >= expected
 }
 
-fn validate_h2_headers(stream_id: u32, has_preface: bool, frame_len: usize, available_payload_len: usize) -> bool {
+fn validate_h2_headers(
+    stream_id: u32,
+    has_preface: bool,
+    frame_len: usize,
+    available_payload_len: usize,
+) -> bool {
     stream_id != 0 && (!has_preface || frame_len <= available_payload_len)
 }
 
@@ -437,14 +453,24 @@ fn validate_h2_rst_stream(stream_id: u32, frame_len: usize, available_payload_le
     stream_id != 0 && fixed_payload_available(frame_len, available_payload_len, 4)
 }
 
-fn validate_h2_settings(flags: u8, stream_id: u32, frame_len: usize, available_payload_len: usize) -> bool {
+fn validate_h2_settings(
+    flags: u8,
+    stream_id: u32,
+    frame_len: usize,
+    available_payload_len: usize,
+) -> bool {
     stream_id == 0
         && frame_len.is_multiple_of(6)
         && (flags & 0x1 == 0 || frame_len == 0)
         && frame_len <= available_payload_len
 }
 
-fn validate_h2_push_promise(stream_id: u32, has_preface: bool, frame_len: usize, available_payload_len: usize) -> bool {
+fn validate_h2_push_promise(
+    stream_id: u32,
+    has_preface: bool,
+    frame_len: usize,
+    available_payload_len: usize,
+) -> bool {
     stream_id != 0 && frame_len >= 4 && (!has_preface || frame_len <= available_payload_len)
 }
 
@@ -460,7 +486,12 @@ fn validate_h2_window_update(frame_len: usize, available_payload_len: usize) -> 
     fixed_payload_available(frame_len, available_payload_len, 4)
 }
 
-fn validate_h2_continuation(stream_id: u32, has_preface: bool, frame_len: usize, available_payload_len: usize) -> bool {
+fn validate_h2_continuation(
+    stream_id: u32,
+    has_preface: bool,
+    frame_len: usize,
+    available_payload_len: usize,
+) -> bool {
     stream_id != 0 && (!has_preface || frame_len <= available_payload_len)
 }
 

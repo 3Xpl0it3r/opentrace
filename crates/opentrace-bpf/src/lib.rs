@@ -27,13 +27,13 @@ pub mod exporter {
 }
 
 pub mod protocol {
+    pub use crate::protocols::MessageType;
+    pub use crate::protocols::ParsedFrame;
     pub use crate::protocols::ProtoParser;
     pub use crate::protocols::eth_proto;
     pub use crate::protocols::ip_proto;
     pub mod appproto {
-        pub use crate::protocols::app_protos::{
-            HttpDirection, HttpFrame, HttpMethod, HttpParser, MessageType,
-        };
+        pub use crate::protocols::app_protos::{HttpDirection, HttpFrame, HttpMethod, HttpParser};
     }
 }
 

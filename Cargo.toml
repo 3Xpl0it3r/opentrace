@@ -6,7 +6,7 @@ members = [
     "crates/opentrace-server", 
     "crates/opentrace-mcp"
 ]
-default-members = ["crates/opentrace-server"]
+default-members = ["crates/opentrace-mcp"]
 
 [workspace.package]
 publish = false
@@ -17,12 +17,19 @@ authors = ["3Xpl0it3r"]
 license = "Apache-2.0"
 repository = "https://github.com/3Xpl0it3r/opentrace"
 
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
 [workspace.dependencies]
 #
 # Workspace member crates
 #
 opentrace-bpf = { path = "crates/opentrace-bpf"}
-opentrace-mcp = { path = "crates/opentrace-mcp"}
+opentrace-server = { path = "crates/opentrace-server"}
 
 #
 # Third party crates
@@ -38,6 +45,7 @@ tokio ={version= "1.52.2", features = ["rt-multi-thread", "time"]}
 tokio-util = "0.7.10"
 libbpf-rs = "0.26.2"
 axum = "0.8.9"
+axum-server = {version="0.8.0", features = ["tls-rustls"]}
 
 [workspace.lints.clippy]
 # Don't Panic - prevent panics from unwraps and unsafe slicing or indexing

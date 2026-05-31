@@ -111,6 +111,6 @@ macro_rules! attach_perf_event {
 }
 
 pub(crate) use {
-    attach_kprobe, attach_kretprobe,
-    attach_multiple_tracepoints, attach_perf_event, attach_tracepoint, define_collector,
+    attach_kprobe, attach_kretprobe, attach_multiple_tracepoints, attach_perf_event,
+    attach_tracepoint, define_collector,
 };

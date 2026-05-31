@@ -3,17 +3,20 @@ name = "opentrace-mcp"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-name = "opentrace_mcp"  
-path = "src/lib.rs"          
-crate-type = ["lib"]        
 
+[[bin]]
+name = "opentrace-mcp"  
+path = "src/bin/opentrace.rs"
 
 [dependencies]
 opentrace-bpf = {path = "../opentrace-bpf"}
+opentrace-server = {workspace = true}
 thiserror = { workspace = true } 
 serde = {workspace = true}
+clap = {workspace = true}
 serde_json = {workspace = true}
 rmcp = {workspace = true}
 tokio = {workspace = true}
 tokio-util = {workspace = true}
+axum = {workspace = true}
+axum-server = { version = "0.8.0", features = ["tls-rustls"] }

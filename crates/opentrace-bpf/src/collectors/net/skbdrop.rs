@@ -18,9 +18,7 @@ use crate::skeleton::with_custom_btf_open_opts;
 use crate::symbolizers::*;
 use crate::utils::net as net_utils;
 
-use crate::collectors::macros::{
-    attach_kprobe, attach_kretprobe, define_collector,
-};
+use crate::collectors::macros::{attach_kprobe, attach_kretprobe, define_collector};
 use crate::types::net::{AddrV4, AddrV6, L2Info, L3Info, L4Info};
 
 // 在
