@@ -29,7 +29,12 @@ pub struct SimpleBoundChannelExpoter<E> {
 impl<E> SimpleBoundChannelExpoter<E> {
     pub fn new(capacity: usize) -> (Self, tokio::sync::mpsc::Receiver<E>) {
         let (event_tx, event_rx) = tokio::sync::mpsc::channel::<E>(capacity);
-        (Self { _event_tx: event_tx }, event_rx)
+        (
+            Self {
+                _event_tx: event_tx,
+            },
+            event_rx,
+        )
     }
 }
 

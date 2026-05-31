@@ -14,9 +14,10 @@ use crate::collectors::macros::{
     define_collector,
 };
 use crate::exporters::{Exporter, helper::load_and_dispath_with};
+use crate::format::StreamFormatter;
 use crate::protocols::{ParsedFrame, ProtoParser};
 use crate::skeleton::with_custom_btf_open_opts;
-use crate::types::net::Addr;
+use crate::types::net::{Addr, AddrV4};
 use crate::{EbpfError, ProbeRegistry};
 
 const CONFIG_KEY: u8 = 0;
@@ -207,9 +208,9 @@ where
         let conn_key = (event.pid, event.fd);
         let addr = event.remote_addr;
 
-        let frame =
-            self.proto_parser
-                .parse(&event.buffer, event.size as usize, self.verbose)?;
+        let frame = self
+            .proto_parser
+            .parse(&event.buffer, event.size as usize, self.verbose)?;
 
         match (
             ConnectionKind::from(event.conn_kind),
@@ -339,34 +340,30 @@ impl<'a> Collector<'a> {
     }
 }
 
-#[derive(Default)]
-pub struct DefaultExporter {
+// DefaultFormatter[#TODO] (shoule add some comments )
+pub struct DefaultFormatter {
     verbose: bool,
 }
 
-impl DefaultExporter {
+impl DefaultFormatter {
     pub fn new(verbose: bool) -> Self {
-        println!("debug vebose: {}", verbose);
-        DefaultExporter { verbose }
+        Self { verbose }
     }
 }
 
-impl Exporter<Event> for DefaultExporter {
-    fn dispatch(&mut self, event: Event) {
-        let addr = unsafe { event.remote_addr.v4addr };
-        let ip = format!(
-            "{}.{}.{}.{}",
-            addr & 0xFF,
-            (addr >> 8) & 0xFF,
-            (addr >> 16) & 0xFF,
-            (addr >> 24) & 0xFF
-        );
+impl StreamFormatter<Event> for DefaultFormatter {
+    fn format<W: std::io::Write>(&self, w: &mut W, event: &Event) -> std::io::Result<()> {
         let duration_str = format_duration(event.duration);
         let target = event.target.as_deref().unwrap_or("unknown");
 
         if self.verbose {
-            println!("远程主机: {}:{}", ip, event.remote_port);
-            println!("target:   {}", target);
+            writeln!(
+                w,
+                "远程主机: {}:{}",
+                AddrV4::from(event.remote_addr),
+                event.remote_port
+            );
+            writeln!("target:   {}", target);
             if let Some(ref req) = event.req_body {
                 let display = if req.len() > DEFAULT_MAX_PAYLOAD_SIZE {
                     &req[..DEFAULT_MAX_PAYLOAD_SIZE]
@@ -381,7 +378,7 @@ impl Exporter<Event> for DefaultExporter {
                     }
                 }
             } else {
-                println!("请求数据: None");
+                writeln!("请求数据: None");
             }
             if let Some(ref resp) = event.resp_body {
                 let display = if resp.len() > DEFAULT_MAX_PAYLOAD_SIZE {
@@ -391,22 +388,23 @@ impl Exporter<Event> for DefaultExporter {
                 };
                 let lines: Vec<&str> = display.lines().collect();
                 if let Some((first, rest)) = lines.split_first() {
-                    println!("响应数据: {}", first);
+                    writeln!("响应数据: {}", first);
                     for line in rest {
-                        println!("          {}", line);
+                        writeln!("          {}", line);
                     }
                 }
             } else {
-                println!("响应数据: None");
+                writeln!("响应数据: None");
             }
-            println!("请求大小: {}", format_size(event.request_size));
-            println!("响应大小: {}", format_size(event.response_size));
-            println!("处理时长: {}", duration_str);
-            println!("-------------------------------------------------------");
+            writeln!(w, "请求大小: {}", format_size(event.request_size));
+            writeln!(w, "响应大小: {}", format_size(event.response_size));
+            writeln!(w, "处理时长: {}", duration_str);
+            writeln!(w, "-------------------------------------------------------");
         } else {
-            println!(
+            writeln!(
+                w,
                 "{}:{}  cost: {}  请求数据量: {}  响应数据量: {}  {}",
-                ip,
+                AddrV4::from(event.remote_addr),
                 event.remote_port,
                 duration_str,
                 format_size(event.request_size),
@@ -414,5 +412,6 @@ impl Exporter<Event> for DefaultExporter {
                 target
             );
         }
+        Ok(())
     }
 }

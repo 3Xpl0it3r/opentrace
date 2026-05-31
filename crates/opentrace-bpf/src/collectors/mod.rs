@@ -15,4 +15,4 @@ pub use cpu::{ProfileCollector, ProfileConfig, ProfileEvent, ProfileStackEvent};
 
 pub use net::{SkbdropCollector, SkbdropConfig, SkbdropEvent, SkbdropEventDefaultFormatter};
 
-pub use net::{SocketDefaultExporter, SocketTraceCollector, SocketTraceConfig, SocketTraceEvent};
+pub use net::{SocketDefaultFormatter, SocketTraceCollector, SocketTraceConfig, SocketTraceEvent};

@@ -55,7 +55,7 @@ pub mod collector {
         };
 
         pub use crate::collectors::{
-            SocketDefaultExporter, SocketTraceCollector, SocketTraceConfig, SocketTraceEvent,
+            SocketDefaultFormatter, SocketTraceCollector, SocketTraceConfig, SocketTraceEvent,
         };
     }
 

@@ -10,5 +10,5 @@ pub use skbdrop::{
 
 pub use socket_trace::{
     Collector as SocketTraceCollector, Config as SocketTraceConfig,
-    DefaultExporter as SocketDefaultExporter, Event as SocketTraceEvent,
+    DefaultFormatter as SocketDefaultFormatter, Event as SocketTraceEvent,
 };

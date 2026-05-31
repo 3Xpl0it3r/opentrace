@@ -40,7 +40,7 @@ fn run_as_skbdrop(
         object,
         registry,
         options.to_config(ctx).into(),
-        DefaultStdoutExporter::with_formatter(SkbdropEventDefaultFormatter::new(symbolizer)),
+        DefaultStdoutExporter::new(SkbdropEventDefaultFormatter::new(symbolizer)),
     )?;
 
     collector.attach_probe()?;

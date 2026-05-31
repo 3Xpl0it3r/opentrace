@@ -13,7 +13,7 @@ pub struct DefaultStdoutExporter<E, F: StreamFormatter<E>> {
 }
 
 impl<E, F: StreamFormatter<E>> DefaultStdoutExporter<E, F> {
-    pub fn with_formatter(formatter: F) -> Self {
+    pub fn new(formatter: F) -> Self {
         Self {
             formater: formatter,
             _phantom: PhantomData,

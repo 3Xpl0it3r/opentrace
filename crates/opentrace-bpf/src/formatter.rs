@@ -5,7 +5,7 @@ pub trait StreamFormatter<T> {
     fn format<W: Write>(&self, w: &mut W, args: &T) -> io::Result<()>;
 }
 
-// 用于结构化输出（其实就是类似into trait)
+// 用于结构化输出（其实就是类似into trait) // todo ，后面可能需要删除掉
 pub trait StructeredFormatter<E: Sized> {
     type Output;
     fn format(&self, from: E) -> Result<Self::Output, io::Error>;
