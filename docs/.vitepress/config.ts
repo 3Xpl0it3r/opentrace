@@ -3,6 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'OpenTrace',
   description: '基于 eBPF 的 Linux 内核网络可观测工具',
+  base: '/opentrace/',
 
   head: [
     ['link', { rel: 'icon', href: '/logo.png' }],
