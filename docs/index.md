@@ -4,7 +4,7 @@ layout: home
 hero:
   name: OpenTrace
   text: 基于 eBPF 的 Linux 内核全栈可观测工具
-  tagline: 基于 eBPF 的内核可观测工具 | 网络 · CPU · IO | CLI / MCP | 可扩展应用层协议 + 自定义解析开发
+  tagline: 基于 eBPF 的 Linux 内核可观测工具，支持命令行与 MCP 服务调用，具备可扩展的应用层协议解析框架，允许用户自定义开发协议解析器。
   image:
     src: /index.png
     alt: OpenTrace Logo
