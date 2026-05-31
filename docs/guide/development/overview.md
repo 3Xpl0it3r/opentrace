@@ -1,4 +1,6 @@
-# OpenTrace 二次开发指南
+# 开发概览
+
+本文档介绍 OpenTrace 的架构和开发流程。
 
 ## 架构概览
 
@@ -19,17 +21,69 @@ OpenTrace 采用三层架构设计：
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 核心组件
+## 核心组件
 
 | 组件 | 作用 | 位置 |
 |------|------|------|
 | **Collector** | 用户态 eBPF 程序，负责挂载探针、采集内核数据 | `crates/opentrace-bpf/src/collectors/` |
 | **Exporter** | 数据导出器，将采集的数据发送到目标（终端/ES/Kafka等） | `crates/opentrace-bpf/src/exporters/` |
 | **Formatter** | 数据格式化器，将 Event 格式化为可读字符串 | `crates/opentrace-bpf/src/formatter.rs` |
+| **Protocol** | 应用层协议解析器，将原始字节解析为结构化帧 | `crates/opentrace-bpf/src/protocols/` |
+
+## 目录结构
+
+```
+crates/
+├── opentrace-bpf/           # 核心库
+│   ├── src/
+│   │   ├── bpf/            # BPF skeleton 生成
+│   │   ├── collectors/     # Collector 实现
+│   │   │   ├── mod.rs
+│   │   │   ├── macros.rs
+│   │   │   ├── net/        # 网络相关
+│   │   │   └── cpu/        # CPU 相关
+│   │   ├── exporters/      # Exporter 实现
+│   │   ├── formatter.rs    # Formatter trait
+│   │   ├── protocols/      # 协议解析器
+│   │   ├── types/          # 公共类型
+│   │   └── lib.rs
+│   └── build.rs            # BPF 编译脚本
+│
+├── opentrace-cli/          # 命令行工具
+│   └── src/
+│       ├── commands/       # 命令实现
+│       └── bin/
+│
+└── opentrace-server/       # 服务端
+    └── src/
+```
 
 ---
 
 ## 开发流程
+
+### 创建新的 Collector
+
+1. **定义 Event 结构体** - 从内核态传递的数据结构
+2. **定义 Config 结构体** - 向 eBPF 程序传递的配置
+3. **创建 Collector** - 使用 `define_collector!` 宏
+4. **实现 Formatter** - 格式化 Event 数据
+5. **注册模块** - 在 `lib.rs` 中导出
+6. **CLI 集成** - 在 CLI 中使用
+
+详细步骤请参考 [Exec Tracepoint 示例](/guide/examples/exec-tracepoint)。
+
+### 扩展协议解析器
+
+1. **实现 ParsedFrame** - 定义解析后的帧结构
+2. **实现 ProtoParser** - 协议解析逻辑
+3. **注册模块** - 在 `protocols/mod.rs` 中导出
+
+详细步骤请参考 [协议扩展](/guide/development/protocol-extension)。
+
+---
+
+## 详细开发步骤
 
 ### 步骤 1: 定义 Event 结构体
 
@@ -38,9 +92,7 @@ Event 是从内核态传递到用户态的数据结构，需要 `#[repr(C)]` 确
 ```rust
 // crates/opentrace-bpf/src/collectors/your_domain/your_event.rs
 
-use serde::{Serialize, Deserialize};
-
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct YourEvent {
     pub pid: u32,
@@ -48,16 +100,6 @@ pub struct YourEvent {
     pub comm: [u8; 16],
     pub timestamp: u64,
     // ... 其他字段
-}
-
-// 可选：实现序列化用于 JSON 输出
-impl Serialize for YourEvent {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        // 自定义序列化逻辑
-    }
 }
 ```
 
@@ -323,6 +365,16 @@ pub trait StreamFormatter<T> {
 }
 ```
 
+### ProtoParser Trait
+
+```rust
+pub trait ProtoParser {
+    type Output: ParsedFrame;
+    fn parse(&self, data: &[u8], size: usize, verbose: bool) -> Option<Self::Output>;
+    fn hash_id(&self, data: &[u8], size: usize) -> u32;
+}
+```
+
 ---
 
 ## 探针挂载宏
@@ -335,148 +387,6 @@ pub trait StreamFormatter<T> {
 | `attach_kprobe!` | 挂载 kprobe | `attach_kprobe!(self, kp_tcp_connect, "tcp_connect");` |
 | `attach_kretprobe!` | 挂载 kretprobe | `attach_kretprobe!(self, kret_tcp_connect, "tcp_connect");` |
 | `attach_perf_event!` | 挂载 perf event | `attach_perf_event!(self, perf_profile_samples, pfd);` |
-
----
-
-## 完整示例：创建 HTTP 请求追踪 Collector
-
-### 文件结构
-
-```
-crates/opentrace-bpf/src/collectors/
-├── mod.rs
-├── macros.rs
-└── http/
-    ├── mod.rs
-    ├── event.rs
-    ├── config.rs
-    ├── collector.rs
-    └── formatter.rs
-```
-
-### 1. event.rs
-
-```rust
-#[derive(Clone, Copy, Debug)]
-#[repr(C)]
-pub struct HttpEvent {
-    pub pid: u32,
-    pub tid: u32,
-    pub method: u8,       // 0=GET, 1=POST, ...
-    pub status: u16,
-    pub latency_us: u64,
-    pub path: [u8; 128],
-}
-```
-
-### 2. collector.rs
-
-```rust
-use std::mem::MaybeUninit;
-use libbpf_rs::skel::{OpenSkel, SkelBuilder};
-use libbpf_rs::{MapFlags, OpenObject, PerfBufferBuilder};
-
-use crate::bpf::http_trace::{HttpTraceSkel, HttpTraceSkelBuilder};
-use crate::collectors::macros::define_collector;
-use crate::exporters::{Exporter, helper::load_and_dispatch};
-use crate::{EbpfError, ProbeRegistry};
-
-use super::event::HttpEvent;
-use super::config::{Config, InnerConfig};
-
-const CONFIG_KEY: u8 = 0;
-
-define_collector!(HttpCollector, HttpTraceSkel);
-
-impl<'a> HttpCollector<'a> {
-    pub fn new(
-        object: &'a mut MaybeUninit<OpenObject>,
-        registry: &'a ProbeRegistry,
-        config: Config,
-        mut exporter: impl Exporter<HttpEvent> + 'a,
-    ) -> Result<Self, EbpfError> {
-        let skel = HttpTraceSkelBuilder::default()
-            .open(object)?
-            .load()?;
-
-        skel.maps.config_map.update(
-            &CONFIG_KEY.to_ne_bytes(),
-            Into::<InnerConfig>::into(config).as_bytes(),
-            MapFlags::ANY,
-        ).map_err(EbpfError::Libbpf)?;
-
-        let perf_buffer = PerfBufferBuilder::new(&skel.maps.perf_events)
-            .sample_cb(move |_cpu: i32, data: &[u8]| {
-                load_and_dispatch::<HttpEvent, _>(data, &mut exporter);
-            })
-            .build()?;
-
-        Ok(Self {
-            probe_registry: registry,
-            skel,
-            perf_buffer,
-            _links: Vec::new(),
-        })
-    }
-
-    fn do_attach_probes(&mut self) -> Result<(), EbpfError> {
-        // 挂载 HTTP 相关探针
-        Ok(())
-    }
-}
-```
-
-### 3. formatter.rs
-
-```rust
-use std::io::{self, Write};
-use crate::formatter::StreamFormatter;
-use super::event::HttpEvent;
-
-pub struct HttpFormatter;
-
-impl HttpFormatter {
-    pub fn new() -> Self { Self }
-}
-
-impl StreamFormatter<HttpEvent> for HttpFormatter {
-    fn format<W: Write>(&self, w: &mut W, event: &HttpEvent) -> io::Result<()> {
-        let method = match event.method {
-            0 => "GET",
-            1 => "POST",
-            _ => "UNKNOWN",
-        };
-        writeln!(w, "[{}] {} {} status={} latency={}us", 
-            event.pid, method, 
-            String::from_utf8_lossy(&event.path),
-            event.status, event.latency_us)
-    }
-}
-```
-
-### 4. CLI 使用
-
-```rust
-use opentrace_bpf::collector::http::{HttpCollector, HttpFormatter, HttpConfig};
-use opentrace_bpf::exporter::DefaultStdoutExporter;
-use opentrace_bpf::collector::Collector;
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let registry = opentrace_bpf::ProbeRegistry::new()?;
-    let mut object = opentrace_bpf::open_object_storage();
-    
-    let formatter = HttpFormatter::new();
-    let exporter = DefaultStdoutExporter::new(formatter);
-    let config = HttpConfig::default();
-    
-    let mut collector = HttpCollector::new(&mut object, &registry, config, exporter)?;
-    collector.attach_probe()?;
-    
-    loop {
-        collector.poll(std::time::Duration::from_millis(100))?;
-    }
-}
-```
 
 ---
 
@@ -516,30 +426,24 @@ impl Exporter<YourEvent> for ElasticsearchExporter {
 
 ---
 
-## 目录结构参考
+## 调试技巧
 
+### 查看内核日志
+
+```bash
+sudo cat /sys/kernel/debug/tracing/trace_pipe
 ```
-crates/
-├── opentrace-bpf/           # 核心库
-│   ├── src/
-│   │   ├── bpf/            # BPF skeleton 生成
-│   │   ├── collectors/     # Collector 实现
-│   │   │   ├── mod.rs
-│   │   │   ├── macros.rs
-│   │   │   ├── net/        # 网络相关
-│   │   │   └── cpu/        # CPU 相关
-│   │   ├── exporters/      # Exporter 实现
-│   │   ├── formatter.rs    # Formatter trait
-│   │   ├── types/          # 公共类型
-│   │   └── lib.rs
-│   └── build.rs            # BPF 编译脚本
-│
-├── opentrace-cli/          # 命令行工具
-│   └── src/
-│       ├── commands/       # 命令实现
-│       └── bin/
-│
-└── opentrace-server/       # 服务端（可选）
+
+### 在 BPF 程序中添加调试输出
+
+```c
+bpf_printk("captured %d bytes from pid=%d", size, pid);
+```
+
+### 运行测试
+
+```bash
+cargo test -p opentrace-bpf
 ```
 
 ---
