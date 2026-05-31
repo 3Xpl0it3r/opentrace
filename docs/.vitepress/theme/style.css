@@ -4,6 +4,7 @@
 
 .VPHero .main {
   max-width: 980px !important;
+  padding-left: 48px !important;
 }
 
 @media (min-width: 960px) {
