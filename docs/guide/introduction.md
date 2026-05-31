@@ -1,6 +1,6 @@
 # 简介
 
-OpenTrace 是一个基于 eBPF 的 Linux 内核可观测工具，提供 skb 丢包追踪、CPU 性能剖析等能力。
+OpenTrace 是一个基于 eBPF 的网络/CPU/内存/IO 全内核可观测工具，提供 skb 丢包追踪、CPU 性能剖析等能力。
 
 ## 核心功能
 

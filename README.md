@@ -13,7 +13,7 @@
 
 [![Documentation](https://img.shields.io/badge/docs-VitePress-blue?logo=vitepress)](https://3Xpl0it3r.github.io/opentrace/)
 
-基于 eBPF 的 Linux 内核可观测工具，提供 skb 丢包追踪、CPU 性能剖析等能力，支持命令行与 MCP 服务两种调用方式。
+基于 eBPF 的网络/CPU/内存/IO 全内核可观测工具，提供 skb 丢包追踪、CPU 性能剖析等能力，支持命令行与 MCP 服务两种调用方式。
 
 📖 **[完整文档](https://3Xpl0it3r.github.io/opentrace/)**
 
