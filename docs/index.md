@@ -4,7 +4,7 @@ layout: home
 hero:
   name: OpenTrace
   text: 基于 eBPF 的 Linux 内核全栈可观测工具
-  tagline: 提供 skb 丢包追踪、CPU 性能剖析等能力，支持命令行与 MCP 服务两种调用方式
+  tagline: 基于 eBPF 的 Linux 内核可观测工具，提供网络诊断、CPU 性能剖析、IO 诊断等核心能力，支持命令行与 MCP 服务两种调用方式，具备可扩展的应用层协议解析框架，允许用户自定义开发协议解析器。
   image:
     src: /index.png
     alt: OpenTrace Logo
