@@ -57,7 +57,7 @@ make info        # 输出发行版 / 内核 / 架构 / BTF 检测结果
 也可直接使用 cargo（要求 BTF 已就绪或已手动放置 `scripts/include/vmlinux.{h,btf}`）：
 
 ```bash
-cargo build                              # 默认构建 opentrace-server
+cargo build                              # 默认构建 opentrace-mcp
 cargo build --package opentrace-cli      # 构建 CLI 工具
 ```
 

@@ -5,12 +5,22 @@ OpenTrace CLI 是主要的命令行工具，用于追踪内核网络事件。
 ## 基本用法
 
 ```bash
-sudo opentrace-cli <命令> [选项]
+sudo opentrace-cli [全局选项] <命令> [子命令] [选项]
 ```
+
+### 全局选项
+
+| 参数 | 说明 |
+|------|------|
+| `--custom-btf-path <PATH>` | 自定义 BTF 路径（用于不支持 BTF 的内核） |
 
 ## 命令
 
-### trace skbdrop
+### trace
+
+追踪内核事件。
+
+#### trace skbdrop
 
 追踪 skb drop 事件：
 
@@ -18,7 +28,7 @@ sudo opentrace-cli <命令> [选项]
 sudo opentrace-cli trace skbdrop
 ```
 
-#### 过滤表达式
+##### 过滤表达式
 
 支持以下过滤表达式：
 
@@ -50,7 +60,7 @@ sudo opentrace-cli trace skbdrop -f "src host 10.0.0.1 and dst port 443"
 sudo opentrace-cli trace skbdrop -f "udp port 53"
 ```
 
-#### 命令行参数
+##### 命令行参数
 
 | 参数 | 说明 |
 |------|------|
@@ -63,20 +73,77 @@ sudo opentrace-cli trace skbdrop -f "udp port 53"
 | `--pod <POD>` | 按 Kubernetes Pod 名称过滤 |
 | `-6, --v6` | 启用 IPv6 相关参数 |
 
-### watch
+### perf
 
-监控网络连接：
+CPU 性能剖析。
+
+#### perf profile
+
+CPU 性能采样：
 
 ```bash
-sudo opentrace-cli watch
+sudo opentrace-cli perf profile
 ```
 
-### perf profile
+##### 命令行参数
 
-CPU 性能剖析：
+| 参数 | 说明 |
+|------|------|
+| `-p, --pid <PID>` | 按进程 ID 过滤（不指定则采样所有进程） |
+| `--tid <TID>` | 按线程 ID 过滤（需要同时指定 pid） |
+| `-c, --cpu <CPU>` | 指定 CPU（-1 表示所有 CPU） |
+| `-g, --group <GROUP>` | 指定 cgroup ID（-1 表示所有） |
+| `--language <LANG>` | 符号解析扩展（支持 `java`） |
+
+##### 示例
 
 ```bash
+# 采样所有进程
+sudo opentrace-cli perf profile
+
+# 采样指定进程
 sudo opentrace-cli perf profile --pid 1234
+
+# 采样指定进程的特定线程
+sudo opentrace-cli perf profile --pid 1234 --tid 5678
+
+# 在指定 CPU 上采样
+sudo opentrace-cli perf profile --cpu 0
+
+# Java 符号解析
+sudo opentrace-cli perf profile --pid 1234 --language java
+```
+
+### watch
+
+监控网络连接。
+
+#### watch http
+
+监控 HTTP 流量：
+
+```bash
+sudo opentrace-cli watch http
+```
+
+##### 命令行参数
+
+| 参数 | 说明 |
+|------|------|
+| `-p, --pid <PID>` | 按进程 ID 过滤 |
+| `-v, --verbose` | 详细输出 |
+
+##### 示例
+
+```bash
+# 监控所有 HTTP 流量
+sudo opentrace-cli watch http
+
+# 监控指定进程的 HTTP 流量
+sudo opentrace-cli watch http --pid 1234
+
+# 详细模式
+sudo opentrace-cli watch http --pid 1234 --verbose
 ```
 
 ## 输出格式

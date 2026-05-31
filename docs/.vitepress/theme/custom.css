@@ -1,0 +1,11 @@
+:root {
+  --vp-nav-menu-font-size: 18px;
+}
+
+.VPNavBarMenuLink {
+  font-size: var(--vp-nav-menu-font-size) !important;
+}
+
+.VPNavBarMenuGroup .VPNavBarMenuLink {
+  font-size: var(--vp-nav-menu-font-size) !important;
+}

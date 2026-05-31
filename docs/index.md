@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: OpenTrace
-  text: 基于 eBPF 的 Linux 内核全栈可观测工具
-  tagline: 基于 eBPF 的 Linux 内核可观测工具，支持命令行与 MCP 服务调用，具备可扩展的应用层协议解析框架，允许用户自定义开发协议解析器。
+  text: 基于 eBPF 的可扩展 Linux 内核可观测平台
+  tagline: 基于 eBPF，支持命令行、MCP、Agent 模式，支持用户自定义追踪点与协议解析器
   image:
     src: /index.png
     alt: OpenTrace Logo
@@ -29,12 +29,13 @@ features:
   - icon: 🛠️
     title: 多种调用方式
     details: 支持 CLI 命令行和 MCP 服务两种调用方式，满足不同场景需求
-  - icon: 🐳
-    title: 容器感知
-    details: 支持按容器 ID、容器名、Kubernetes Pod 名称进行过滤
   - icon: ⚡
     title: 高性能
-    details: 基于 eBPF 技术，在内核态完成数据采集和过滤，最小化性能开销
+    details: 基于 Rust 和 eBPF 技术，在内核态完成数据采集和过滤，最小化性能开销
+  - icon: 🔧
+    title: 可扩展
+    details: 提供追踪点与协议解析器的二次开发框架，支持自定义扩展
+    link: /guide/development/overview
 ---
 
 ## 快速安装
