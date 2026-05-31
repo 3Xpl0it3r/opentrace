@@ -6,7 +6,7 @@ members = [
     "crates/opentrace-server", 
     "crates/opentrace-mcp"
 ]
-default-members = ["crates/opentrace-server"]
+default-members = ["crates/opentrace-mcp"]
 
 [workspace.package]
 publish = false
