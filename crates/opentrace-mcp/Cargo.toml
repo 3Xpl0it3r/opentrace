@@ -18,3 +18,5 @@ serde_json = {workspace = true}
 rmcp = {workspace = true}
 tokio = {workspace = true}
 tokio-util = {workspace = true}
+axum = {workspace = true}
+axum-server = { version = "0.8.0", features = ["tls-rustls"] }
