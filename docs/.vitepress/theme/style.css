@@ -1,0 +1,17 @@
+.VPHero.has-image .container {
+  gap: 80px !important;
+}
+
+.VPHero .main {
+  max-width: 720px !important;
+}
+
+@media (min-width: 960px) {
+  .VPHero.has-image .container {
+    justify-content: flex-start !important;
+  }
+
+  .VPHero .image {
+    padding-left: 0 !important;
+  }
+}
