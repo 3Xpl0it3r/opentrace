@@ -22,7 +22,7 @@ repository = "https://github.com/3Xpl0it3r/opentrace"
 # Workspace member crates
 #
 opentrace-bpf = { path = "crates/opentrace-bpf"}
-opentrace-mcp = { path = "crates/opentrace-mcp"}
+opentrace-server = { path = "crates/opentrace-server"}
 
 #
 # Third party crates

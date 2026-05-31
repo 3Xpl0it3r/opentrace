@@ -897,7 +897,9 @@ dependencies = [
 name = "opentrace-mcp"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "opentrace-bpf",
+ "opentrace-server",
  "rmcp",
  "serde",
  "serde_json",
@@ -914,7 +916,6 @@ dependencies = [
  "clap",
  "libc",
  "opentrace-bpf",
- "opentrace-mcp",
  "rmcp",
  "thiserror",
  "tokio",

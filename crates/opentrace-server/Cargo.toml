@@ -3,12 +3,12 @@ name = "opentrace-server"
 version = "0.1.0"
 edition = "2024"
 
-[[bin]]
-name = "opentrace-server"  
-path = "src/bin/opentrace.rs"
+[lib]
+name = "opentrace_server"  
+path = "src/lib.rs"          
+crate-type = ["lib"]        
 
 [dependencies]
-opentrace-mcp = {workspace = true}
 opentrace-bpf = {workspace = true}
 
 rmcp = {workspace = true}

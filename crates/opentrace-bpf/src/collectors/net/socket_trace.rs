@@ -357,13 +357,13 @@ impl StreamFormatter<Event> for DefaultFormatter {
         let target = event.target.as_deref().unwrap_or("unknown");
 
         if self.verbose {
-            writeln!(
+            let _ = writeln!(
                 w,
                 "远程主机: {}:{}",
                 AddrV4::from(event.remote_addr),
                 event.remote_port
             );
-            writeln!("target:   {}", target);
+            let _ = writeln!(w, "target:   {}", target);
             if let Some(ref req) = event.req_body {
                 let display = if req.len() > DEFAULT_MAX_PAYLOAD_SIZE {
                     &req[..DEFAULT_MAX_PAYLOAD_SIZE]
@@ -372,13 +372,13 @@ impl StreamFormatter<Event> for DefaultFormatter {
                 };
                 let lines: Vec<&str> = display.lines().collect();
                 if let Some((first, rest)) = lines.split_first() {
-                    println!("请求数据: {}", first);
+                    let _ = writeln!(w, "请求数据: {}", first);
                     for line in rest {
-                        println!("          {}", line);
+                        let _ = writeln!(w, "          {}", line);
                     }
                 }
             } else {
-                writeln!("请求数据: None");
+                let _ = writeln!(w, "请求数据: None");
             }
             if let Some(ref resp) = event.resp_body {
                 let display = if resp.len() > DEFAULT_MAX_PAYLOAD_SIZE {
@@ -388,20 +388,20 @@ impl StreamFormatter<Event> for DefaultFormatter {
                 };
                 let lines: Vec<&str> = display.lines().collect();
                 if let Some((first, rest)) = lines.split_first() {
-                    writeln!("响应数据: {}", first);
+                    let _ = writeln!(w, "响应数据: {}", first);
                     for line in rest {
-                        writeln!("          {}", line);
+                        let _ = writeln!(w, "          {}", line);
                     }
                 }
             } else {
-                writeln!("响应数据: None");
+                let _ = writeln!(w, "响应数据: None");
             }
-            writeln!(w, "请求大小: {}", format_size(event.request_size));
-            writeln!(w, "响应大小: {}", format_size(event.response_size));
-            writeln!(w, "处理时长: {}", duration_str);
-            writeln!(w, "-------------------------------------------------------");
+            let _ = writeln!(w, "请求大小: {}", format_size(event.request_size));
+            let _ = writeln!(w, "响应大小: {}", format_size(event.response_size));
+            let _ = writeln!(w, "处理时长: {}", duration_str);
+            let _ = writeln!(w, "-------------------------------------------------------");
         } else {
-            writeln!(
+            let _ = writeln!(
                 w,
                 "{}:{}  cost: {}  请求数据量: {}  响应数据量: {}  {}",
                 AddrV4::from(event.remote_addr),

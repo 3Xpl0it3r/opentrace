@@ -33,6 +33,5 @@ pub mod eth_proto {
 }
 
 pub mod app_protos {
-    pub use super::MessageType;
     pub use super::http::{HttpDirection, HttpFrame, HttpMethod, HttpParser};
 }
