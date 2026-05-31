@@ -6,7 +6,7 @@ export default defineConfig({
   base: '/opentrace/',
 
   head: [
-    ['link', { rel: 'icon', href: '/logo.png' }],
+    ['link', { rel: 'icon', href: '/opentrace/logo.png' }],
   ],
 
   themeConfig: {
