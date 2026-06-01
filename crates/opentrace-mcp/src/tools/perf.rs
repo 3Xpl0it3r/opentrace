@@ -8,7 +8,9 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::Duration;
 
 use opentrace_bpf::collector::Collector;
-use opentrace_bpf::collector::cpu::{ProfileCollector, ProfileConfig, ProfileStackStorage};
+use opentrace_bpf::collector::cpu::{
+    ProfileCollector, ProfileConfig, ProfileEvent, ProfileStackStorage,
+};
 use opentrace_bpf::symbol::{Source, SymbolizerProvider};
 
 use crate::errors::MCPError;
@@ -74,7 +76,7 @@ impl PerfMcpToolParams {
 
 pub(crate) async fn tool_handler(params: PerfMcpToolParams) -> Result<CallToolResult, ErrorData> {
     let mut object = opentrace_bpf::open_object_storage();
-    let (exporter, event_rx) = SimpleUnboundChannelExporter::new();
+    let (exporter, event_rx) = SimpleUnboundChannelExporter::<ProfileEvent, _>::new();
     let mut collector = ProfileCollector::new(&mut object, params.to_config(), exporter)
         .map_err(MCPError::from)
         .map_err(ErrorData::from)?;
@@ -84,7 +86,7 @@ pub(crate) async fn tool_handler(params: PerfMcpToolParams) -> Result<CallToolRe
         .map_err(ErrorData::from)?;
 
     // 开始采集数据
-    let stack_storage = receive_profile_events(collector, event_rx, params.timeout())
+    let stack_store = receive_profile_events(collector, event_rx, params.timeout())
         .await
         .map_err(ErrorData::from)?;
     // 符号解析
@@ -97,16 +99,16 @@ pub(crate) async fn tool_handler(params: PerfMcpToolParams) -> Result<CallToolRe
     symbolizer_provider.register(&source);
     let symbolizer = symbolizer_provider.get_symbolizer(&source);
     // 聚合
-    let stack_storage = stack_storage.migrate_into_new_tree(source, symbolizer);
+    let merged = stack_store.merged(source, symbolizer);
 
     Ok(CallToolResult::success(vec![Content::text(
-        stack_storage.to_string(),
+        merged.to_string(),
     )]))
 }
 
 async fn receive_profile_events(
     mut collector: impl Collector,
-    mut rx: UnboundedReceiver<(Vec<u64>, Vec<u64>)>,
+    mut rx: UnboundedReceiver<ProfileEvent>,
     timeout: Duration,
 ) -> Result<ProfileStackStorage, MCPError> {
     let mut stack_storage = ProfileStackStorage::default();
@@ -123,15 +125,17 @@ async fn receive_profile_events(
                 collector.poll(Duration::from_millis(0))?;
             }
             event = rx.recv() => {
-                let Some((mut stack, mut kstack)) = event else {
+                let Some(event) = event else {
                     break;
                 };
-
+                let mut stack = event.ustack;
+                let mut kstack = event.kstack;
                 if !kstack.is_empty() {
                     stack.push(KSTACK_FLAGS);
                     stack.append(&mut kstack);
                 }
                 stack_storage.insert(stack);
+
             }
         }
     }

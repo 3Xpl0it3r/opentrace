@@ -10,13 +10,13 @@ use crate::EbpfError;
 use crate::bpf::perf_profile::{self, PerfProfileSkelBuilder};
 use crate::collectors::Collector as CollectorTrait;
 use crate::collectors::macros::attach_perf_event;
-use crate::exporters::{Exporter, helper::load_and_dispatch};
+use crate::exporters::Exporter;
 use crate::skeleton::with_custom_btf_open_opts;
 use crate::utils::procfs;
 use crate::utils::syscall::PerfEventFdBuilder;
 
 use super::Config;
-use super::Event;
+use super::event::{Event, InnerEvent};
 
 // perf profile event,
 pub struct Collector<'a> {
@@ -39,7 +39,8 @@ impl<'a> Collector<'a> {
 
         let perf_buffer = PerfBufferBuilder::new(&skel.maps.perf_events)
             .sample_cb(move |_cpu: i32, data: &[u8]| {
-                load_and_dispatch::<Event, _>(data, &mut exporter);
+                let event = unsafe { std::ptr::read_unaligned(data.as_ptr() as *const InnerEvent) };
+                exporter.dispatch(event.into());
             })
             .build()?;
 

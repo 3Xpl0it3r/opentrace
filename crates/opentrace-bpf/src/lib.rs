@@ -61,7 +61,7 @@ pub mod collector {
 
     pub mod cpu {
         pub use crate::collectors::{
-            ProfileCollector, ProfileConfig, ProfileEvent, ProfileStackEvent, ProfileStackStorage,
+            ProfileCollector, ProfileConfig, ProfileEvent, ProfileStackStorage,
         };
     }
 }

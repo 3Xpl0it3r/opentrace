@@ -24,7 +24,7 @@ impl StacksStorage {
         self.root.insert(&stacks, true);
     }
 
-    pub fn migrate_into_new_tree(self, source: Source, resolver: &dyn Symbolizer) -> Self {
+    pub fn merged(self, source: Source, resolver: &dyn Symbolizer) -> Self {
         let mut storage = StacksStorage::default();
         storage.root.account = self.root.account;
 

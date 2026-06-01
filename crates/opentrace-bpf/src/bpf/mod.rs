@@ -18,4 +18,3 @@ pub mod socket_tcp {
         "/src/bpf/socket_tcp.skel.rs"
     ));
 }
-

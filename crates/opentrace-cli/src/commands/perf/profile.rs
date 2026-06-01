@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use opentrace_bpf::collector::Collector;
-use opentrace_bpf::collector::cpu::{ProfileCollector, ProfileStackEvent, ProfileStackStorage};
+use opentrace_bpf::collector::cpu::{ProfileCollector, ProfileEvent, ProfileStackStorage};
 use opentrace_bpf::exporter::SimpleUnboundChannelExporter;
 use opentrace_bpf::symbol::{Source, SymbolizerProvider};
 
@@ -32,11 +32,11 @@ pub async fn run_as_profile(
     symbolizer_provider.register(&source);
     let symbolizer = symbolizer_provider.get_symbolizer(&source);
 
-    let (exporter, mut event_rx) = SimpleUnboundChannelExporter::<ProfileStackEvent, _>::new();
+    let (exporter, mut event_rx) = SimpleUnboundChannelExporter::<ProfileEvent, _>::new();
     let mut collector = ProfileCollector::new(object, options.to_config(ctx), exporter)?;
     collector.attach_probe()?;
 
-    let mut pre_handle_stack_storage = ProfileStackStorage::default();
+    let mut stack_storage = ProfileStackStorage::default();
     let mut poll_interval = tokio::time::interval(Duration::from_millis(100));
     let sampling_timeout = tokio::time::sleep(Duration::from_secs(60));
     tokio::pin!(sampling_timeout);
@@ -55,20 +55,20 @@ pub async fn run_as_profile(
             }
             event = event_rx.recv() => {
                 if let Some(event) = event {
-                    let mut stack = event.0;
-                    let mut kstack = event.1;
+                    let mut stack = event.ustack;
+                    let mut kstack = event.kstack;
                     if !kstack.is_empty() {
                         stack.push(KSTACK_FLAGS);
                         stack.append(&mut kstack);
                     }
-                    pre_handle_stack_storage.insert(stack);
+                    stack_storage.insert(stack);
                 }
             }
         }
     }
     println!("采样完成，开始处理......");
-    let finnal_stack_storage = pre_handle_stack_storage.migrate_into_new_tree(source, symbolizer);
-    println!("{}", finnal_stack_storage);
+    let merged = stack_storage.merged(source, symbolizer);
+    println!("{}", merged);
 
     Ok(())
 }

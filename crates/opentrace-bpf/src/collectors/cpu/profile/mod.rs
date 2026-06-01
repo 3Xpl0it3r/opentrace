@@ -7,5 +7,5 @@ mod stack_store;
 
 pub use collector::Collector;
 pub use config::Config;
-pub use event::{Event, StackEvent};
+pub use event::Event;
 pub use stack_store::StacksStorage;

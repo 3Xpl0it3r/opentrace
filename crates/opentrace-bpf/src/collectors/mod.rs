@@ -11,9 +11,7 @@ pub trait Collector {
     fn attach_probe(&mut self) -> Result<(), EbpfError>;
 }
 
-pub use cpu::{
-    ProfileCollector, ProfileConfig, ProfileEvent, ProfileStackEvent, ProfileStackStorage,
-};
+pub use cpu::{ProfileCollector, ProfileConfig, ProfileEvent, ProfileStackStorage};
 
 // skbdrop
 pub use net::{SkbdropCollector, SkbdropConfig, SkbdropEvent, SkbdropEventDefaultFormatter};
