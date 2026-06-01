@@ -7,4 +7,4 @@ cargo build  --package opentrace-cli
 # sudo ./target/debug/opentrace-cli trace skbdrop -f "host 111.63.65.103 and tcp and port 80"
 # pid=$1
 # sudo ./target/debug/opentrace-cli  perf profile -p ${pid}
-# sudo ./target/debug/opentrace-cli watch  elastic -p 6853 -v 
+sudo ./target/debug/opentrace-cli watch  http -p 2003 -v 

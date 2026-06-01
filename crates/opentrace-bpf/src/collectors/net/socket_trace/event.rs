@@ -5,6 +5,7 @@ use crate::types::net::Addr;
 pub struct Event {
     pub remote_addr: Addr,
     pub remote_port: u16,
+    pub family: u16,
     pub req_body: Option<Box<str>>,
     pub resp_body: Option<Box<str>>,
     pub timestamp: u64,
@@ -20,6 +21,7 @@ impl From<InnerEvent> for Event {
         Self {
             remote_addr: value.remote_addr,
             remote_port: value.remote_port,
+            family: value.family,
             req_body: None,
             resp_body: None,
             timestamp: value.timestamp,
@@ -44,4 +46,6 @@ pub(super) struct InnerEvent {
     pub(super) flow_direct: u32,
     pub(super) remote_port: u16,
     pub(super) local_port: u16,
+    pub(super) family: u16,
+    pub(super) _pad: u16,
 }

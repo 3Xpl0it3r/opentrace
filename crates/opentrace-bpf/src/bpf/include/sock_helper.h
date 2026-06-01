@@ -26,9 +26,10 @@ static __always_inline u16 sock_family(const struct sock *sk) {
 
 static __always_inline void sock_remote_addr(const struct sock *sk, u16 family,
                                              union addr *out) {
-  __builtin_memset(out, 0, sizeof(*out));
   if (!sk)
     return;
+
+  __builtin_memset(out, 0, sizeof(*out));
 
   if (family == AF_INET) {
     bpf_probe_read_kernel(&out->v4addr, sizeof(out->v4addr),

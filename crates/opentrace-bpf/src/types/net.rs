@@ -24,26 +24,6 @@ pub union Addr {
     pub v6addr: AddrV6,
 }
 
-impl std::hash::Hash for Addr {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        unsafe {
-            // 使用 v6addr 的内存表示进行哈希，覆盖 v4 和 v6 两种情况
-            self.v6addr.upper.hash(state);
-            self.v6addr.lower.hash(state);
-        }
-    }
-}
-
-impl PartialEq for Addr {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe {
-            self.v6addr.upper == other.v6addr.upper && self.v6addr.lower == other.v6addr.lower
-        }
-    }
-}
-
-impl Eq for Addr {}
-
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct L2Info {
@@ -94,10 +74,15 @@ impl From<Addr> for AddrV6 {
 
 impl From<[u32; 4]> for Addr {
     fn from(arr: [u32; 4]) -> Self {
+        let mut bytes = [0; 16];
+        for (chunk, word) in bytes.chunks_exact_mut(4).zip(arr) {
+            chunk.copy_from_slice(&word.to_ne_bytes());
+        }
+
         Addr {
             v6addr: AddrV6 {
-                upper: ((arr[0] as u64) << 32) | (arr[1] as u64),
-                lower: ((arr[2] as u64) << 32) | (arr[3] as u64),
+                upper: u64::from_ne_bytes(bytes[..8].try_into().unwrap()),
+                lower: u64::from_ne_bytes(bytes[8..].try_into().unwrap()),
             },
         }
     }
@@ -118,17 +103,19 @@ impl fmt::Display for AddrV4 {
 
 impl fmt::Display for AddrV6 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let upper = self.upper.to_ne_bytes();
+        let lower = self.lower.to_ne_bytes();
         write!(
             f,
-            "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
-            (self.upper >> 48) & 0xFFFF,
-            (self.upper >> 32) & 0xFFFF,
-            (self.upper >> 16) & 0xFFFF,
-            self.upper & 0xFFFF,
-            (self.lower >> 48) & 0xFFFF,
-            (self.lower >> 32) & 0xFFFF,
-            (self.lower >> 16) & 0xFFFF,
-            self.lower & 0xFFFF,
+            "[{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}]",
+            u16::from_be_bytes([upper[0], upper[1]]),
+            u16::from_be_bytes([upper[2], upper[3]]),
+            u16::from_be_bytes([upper[4], upper[5]]),
+            u16::from_be_bytes([upper[6], upper[7]]),
+            u16::from_be_bytes([lower[0], lower[1]]),
+            u16::from_be_bytes([lower[2], lower[3]]),
+            u16::from_be_bytes([lower[4], lower[5]]),
+            u16::from_be_bytes([lower[6], lower[7]]),
         )
     }
 }
@@ -219,6 +206,26 @@ impl<'de> Deserialize<'de> for L4Info {
     }
 }
 
+impl std::hash::Hash for Addr {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        unsafe {
+            // 使用 v6addr 的内存表示进行哈希，覆盖 v4 和 v6 两种情况
+            self.v6addr.upper.hash(state);
+            self.v6addr.lower.hash(state);
+        }
+    }
+}
+
+impl PartialEq for Addr {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe {
+            self.v6addr.upper == other.v6addr.upper && self.v6addr.lower == other.v6addr.lower
+        }
+    }
+}
+
+impl Eq for Addr {}
+
 impl fmt::Debug for Addr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         unsafe {
@@ -232,17 +239,36 @@ impl fmt::Debug for Addr {
 
 impl fmt::Debug for AddrV6 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
-            (self.upper >> 48) & 0xFFFF,
-            (self.upper >> 32) & 0xFFFF,
-            (self.upper >> 16) & 0xFFFF,
-            self.upper & 0xFFFF,
-            (self.lower >> 48) & 0xFFFF,
-            (self.lower >> 32) & 0xFFFF,
-            (self.lower >> 16) & 0xFFFF,
-            self.lower & 0xFFFF,
-        )
+        fmt::Display::fmt(self, f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Addr, AddrV6};
+
+    #[test]
+    fn ipv6_display_uses_network_order_octets() {
+        let addr = AddrV6 {
+            upper: u64::from_ne_bytes([0x20, 0x01, 0x0d, 0xb8, 0x01, 0x02, 0x03, 0x04]),
+            lower: u64::from_ne_bytes([0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c]),
+        };
+
+        assert_eq!(addr.to_string(), "2001:db8:102:304:506:708:90a:b0c");
+    }
+
+    #[test]
+    fn addr_from_u32_array_preserves_memory_order() {
+        let addr = Addr::from([
+            u32::from_ne_bytes([0x20, 0x01, 0x0d, 0xb8]),
+            u32::from_ne_bytes([0x01, 0x02, 0x03, 0x04]),
+            u32::from_ne_bytes([0x05, 0x06, 0x07, 0x08]),
+            u32::from_ne_bytes([0x09, 0x0a, 0x0b, 0x0c]),
+        ]);
+
+        assert_eq!(
+            AddrV6::from(addr).to_string(),
+            "2001:db8:102:304:506:708:90a:b0c"
+        );
     }
 }

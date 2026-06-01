@@ -8,7 +8,6 @@
 #include "include/net_types.h"
 #include "include/ebpf_map.h"
 #include "include/sock_helper.h"
-#include "include/debug.h"
 
 #define MAX_BUFFER_SIZE 1024
 #define MAX_IOVEC_ITER 10
@@ -30,6 +29,8 @@ struct event_t {
   u32 flow_direct; // 请求方向, 出去。还是进来的包
   u16 remote_port;
   u16 local_port;
+  u16 family;      // AF_INET=2 / AF_INET6=10, 用户态根据此决定 v4/v6 渲染
+  u16 _pad;
 };
 
 enum conn_kind {
@@ -274,6 +275,7 @@ process_syscall_exit(struct trace_event_raw_sys_exit *ctx,
   event->flow_direct = args->direction;
   event->remote_port = bpf_ntohs(value->remote_port);
   event->local_port = value->local_port;
+  event->family = value->family;
 
   if (kind == RW_BUF_UBUF)
     fill_event_from_ubuf(event, args->ubuf, total_read_bytes);

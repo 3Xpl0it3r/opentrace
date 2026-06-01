@@ -1,6 +1,11 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 use crate::EbpfError;
 
+pub(crate) mod family {
+    pub(crate) const AF_INET: u16 = 2;
+    pub(crate) const AF_INET6: u16 = 10;
+}
+
 pub const IP: u16 = 0;
 pub const ICMP: u16 = 1;
 pub const IGMP: u16 = 2;

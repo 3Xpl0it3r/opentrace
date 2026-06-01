@@ -27,12 +27,12 @@ pub fn ipaddr_to_u128(ip_str: &str) -> Result<[u32; 4], EbpfError> {
     match ip {
         IpAddr::V4(ipv4) => Ok([htonl(ipv4.to_bits()), 0, 0, 0]),
         IpAddr::V6(ipv6) => {
-            let segments = ipv6.segments();
+            let octets = ipv6.octets();
             Ok([
-                ((segments[0] as u32) << 16) | segments[1] as u32,
-                ((segments[2] as u32) << 16) | segments[3] as u32,
-                ((segments[4] as u32) << 16) | segments[5] as u32,
-                ((segments[6] as u32) << 16) | segments[7] as u32,
+                u32::from_ne_bytes(octets[0..4].try_into().unwrap()),
+                u32::from_ne_bytes(octets[4..8].try_into().unwrap()),
+                u32::from_ne_bytes(octets[8..12].try_into().unwrap()),
+                u32::from_ne_bytes(octets[12..16].try_into().unwrap()),
             ])
         }
     }
@@ -65,5 +65,27 @@ pub(super) fn tcp_flags(flags: u16) -> String {
         "NONE".to_string()
     } else {
         result.join("-")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ipaddr_to_u128;
+
+    #[test]
+    fn ipv6_conversion_preserves_network_order_octets() {
+        let words = ipaddr_to_u128("2001:db8:102:304:506:708:90a:b0c").unwrap();
+        let mut bytes = [0; 16];
+        for (chunk, word) in bytes.chunks_exact_mut(4).zip(words) {
+            chunk.copy_from_slice(&word.to_ne_bytes());
+        }
+
+        assert_eq!(
+            bytes,
+            [
+                0x20, 0x01, 0x0d, 0xb8, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
+                0x0b, 0x0c,
+            ]
+        );
     }
 }
