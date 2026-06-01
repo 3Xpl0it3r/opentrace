@@ -1,5 +1,6 @@
 rm -f crates/opentrace-bpf/src/bpf/*.skel.rs
 rm  ./target/debug/opentrace-*
+cargo fmt
 cargo build  --package opentrace-bpf
 cargo build  --package opentrace-mcp
 cargo build  --package opentrace-cli
