@@ -3,7 +3,7 @@ mod collector;
 mod config;
 mod formater;
 mod event;
-mod cache;
+mod matcher;
 
 pub use collector::Collector;
 pub use config::Config;

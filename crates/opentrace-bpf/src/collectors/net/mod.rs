@@ -1,13 +1,13 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 mod skbdrop;
-mod socket_trace;
+mod socket_tcp;
 
 pub use skbdrop::{
     Collector as SkbdropCollector, Config as SkbdropConfig,
     DefaultFormatter as SkbdropEventDefaultFormatter, Event as SkbdropEvent,
 };
 
-pub use socket_trace::{
-    Collector as SocketTraceCollector, Config as SocketTraceConfig,
-    DefaultFormatter as SocketDefaultFormatter, Event as SocketTraceEvent,
+pub use socket_tcp::{
+    Collector as SocketTcpCollector, Config as SocketTcpConfig,
+    DefaultFormatter as SocketTcpFormatter, Event as SocketTcpEvent,
 };

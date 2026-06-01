@@ -7,7 +7,7 @@ use std::mem::MaybeUninit;
 use libbpf_rs::skel::{OpenSkel, SkelBuilder};
 use libbpf_rs::{MapCore, MapFlags, OpenObject, PerfBufferBuilder};
 
-use crate::bpf::socket_trace::{SocketTraceSkel, SocketTraceSkelBuilder};
+use crate::bpf::socket_tcp::{SocketTcpSkel, SocketTcpSkelBuilder};
 use crate::collectors::macros::{
     attach_kprobe, attach_kretprobe, attach_multiple_tracepoints, attach_tracepoint,
     define_collector,
@@ -17,13 +17,13 @@ use crate::protocols::{ParsedFrame, ProtoParser};
 use crate::skeleton::with_custom_btf_open_opts;
 use crate::{EbpfError, ProbeRegistry};
 
-use super::cache::EventCacheStorage;
 use super::config::{Config, InnerConfig};
 use super::event::{Event, InnerEvent};
+use super::matcher::EventMatcher;
 
 const CONFIG_KEY: u8 = 0;
 
-define_collector!(Collector, SocketTraceSkel);
+define_collector!(Collector, SocketTcpSkel);
 
 impl<'a> Collector<'a> {
     pub fn new(
@@ -35,11 +35,11 @@ impl<'a> Collector<'a> {
     ) -> Result<Self, EbpfError> {
         let skel = match config.custom_btf_path {
             Some(ref custom_btf_path) => with_custom_btf_open_opts(custom_btf_path, |open_opts| {
-                Ok(SocketTraceSkelBuilder::default()
+                Ok(SocketTcpSkelBuilder::default()
                     .open_opts(open_opts, object)?
                     .load()?)
             })?,
-            None => SocketTraceSkelBuilder::default().open(object)?.load()?,
+            None => SocketTcpSkelBuilder::default().open(object)?.load()?,
         };
         let verbose = config.verbose;
         let _ = skel.maps.config_map.update(
@@ -48,7 +48,7 @@ impl<'a> Collector<'a> {
             MapFlags::ANY,
         );
 
-        let mut event_cache = EventCacheStorage::new(proto_parser, verbose);
+        let mut event_cache = EventMatcher::new(proto_parser, verbose);
         let perf_buffer = PerfBufferBuilder::new(&skel.maps.perf_events)
             .sample_cb(move |_cpu: i32, data: &[u8]| {
                 load_and_dispath_with(data, &mut exporter, |data| {

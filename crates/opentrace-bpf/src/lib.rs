@@ -55,13 +55,13 @@ pub mod collector {
         };
 
         pub use crate::collectors::{
-            SocketDefaultFormatter, SocketTraceCollector, SocketTraceConfig, SocketTraceEvent,
+            SocketTcpCollector, SocketTcpConfig, SocketTcpEvent, SocketTcpFormatter,
         };
     }
 
     pub mod cpu {
         pub use crate::collectors::{
-            ProfileCollector, ProfileConfig, ProfileEvent, ProfileStackEvent,
+            ProfileCollector, ProfileConfig, ProfileEvent, ProfileStackEvent, ProfileStackStorage,
         };
     }
 }

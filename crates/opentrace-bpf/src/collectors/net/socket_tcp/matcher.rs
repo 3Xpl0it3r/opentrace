@@ -37,7 +37,7 @@ impl From<u32> for FlowDirection {
 }
 
 #[derive(Default)]
-pub(super) struct EventCacheStorage<T> {
+pub(super) struct EventMatcher<T> {
     // pid fd Addr
     passive_conns: HashMap<(u32 /*pid*/, u32 /*fd*/), HashMap<Addr, Event>>,
     active_conns: HashMap<(u32, u32), HashMap<Addr, Event>>,
@@ -45,7 +45,7 @@ pub(super) struct EventCacheStorage<T> {
     verbose: bool,
 }
 
-impl<T> EventCacheStorage<T>
+impl<T> EventMatcher<T>
 where
     T: ProtoParser<Output: ParsedFrame>,
 {

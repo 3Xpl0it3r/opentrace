@@ -12,9 +12,10 @@ pub mod skbdrop {
     ));
 }
 
-pub mod socket_trace {
+pub mod socket_tcp {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/src/bpf/socket_trace.skel.rs"
+        "/src/bpf/socket_tcp.skel.rs"
     ));
 }
+

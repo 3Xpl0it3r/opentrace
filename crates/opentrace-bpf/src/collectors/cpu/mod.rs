@@ -3,5 +3,5 @@ mod profile;
 
 pub use profile::{
     Collector as ProfileCollector, Config as ProfileConfig, Event as ProfileEvent,
-    StackEvent as ProfileStackEvent,
+    StackEvent as ProfileStackEvent, StacksStorage as ProfileStackStorage,
 };

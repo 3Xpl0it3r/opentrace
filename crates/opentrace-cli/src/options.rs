@@ -160,7 +160,7 @@ pub mod perf {
 
 pub mod watch {
     use clap::Args;
-    use opentrace_bpf::collector::net::SocketTraceConfig;
+    use opentrace_bpf::collector::net::SocketTcpConfig;
 
     use super::CliOptsCtx;
 
@@ -178,8 +178,8 @@ pub mod watch {
     }
 
     impl HttpOptions {
-        pub fn to_config(self, ctx: CliOptsCtx) -> SocketTraceConfig {
-            SocketTraceConfig {
+        pub fn to_config(self, ctx: CliOptsCtx) -> SocketTcpConfig {
+            SocketTcpConfig {
                 custom_btf_path: ctx.custom_btf_path,
                 pid: self.pid,
                 verbose: self.verbose,
