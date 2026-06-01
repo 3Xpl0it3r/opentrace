@@ -105,9 +105,13 @@ impl fmt::Display for AddrV6 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let upper = self.upper.to_ne_bytes();
         let lower = self.lower.to_ne_bytes();
+        if upper == [0; 8] && lower[..4] == [0, 0, 0xff, 0xff] {
+            return write!(f, "{}.{}.{}.{}", lower[4], lower[5], lower[6], lower[7]);
+        }
+
         write!(
             f,
-            "[{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}]",
+            "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
             u16::from_be_bytes([upper[0], upper[1]]),
             u16::from_be_bytes([upper[2], upper[3]]),
             u16::from_be_bytes([upper[4], upper[5]]),
@@ -255,6 +259,16 @@ mod tests {
         };
 
         assert_eq!(addr.to_string(), "2001:db8:102:304:506:708:90a:b0c");
+    }
+
+    #[test]
+    fn ipv4_mapped_ipv6_displays_as_ipv4() {
+        let addr = AddrV6 {
+            upper: 0,
+            lower: u64::from_ne_bytes([0, 0, 0xff, 0xff, 10, 253, 91, 214]),
+        };
+
+        assert_eq!(addr.to_string(), "10.253.91.214");
     }
 
     #[test]

@@ -29,7 +29,7 @@ struct event_t {
   u32 flow_direct; // 请求方向, 出去。还是进来的包
   u16 remote_port;
   u16 local_port;
-  u16 family;      // AF_INET=2 / AF_INET6=10, 用户态根据此决定 v4/v6 渲染
+  u16 family; // AF_INET=2 / AF_INET6=10, 用户态根据此决定 v4/v6 渲染
   u16 _pad;
 };
 
@@ -52,6 +52,7 @@ struct syscall_conn_args_t {
 struct syscall_accept_args_t {
   int fd;
   struct socket *skt;
+  struct sock *sk;
   struct sockaddr *addr;
 };
 
@@ -388,9 +389,24 @@ int kret_sock_alloc(struct pt_regs *ctx) {
   return BPF_OK;
 }
 
+SEC("kretprobe/inet_csk_accept")
+int kret_inet_csk_accept(struct pt_regs *ctx) {
+  u32 tgid = bpf_get_current_pid_tgid() >> 32;
+  struct syscall_accept_args_t *args =
+      (struct syscall_accept_args_t *)bpf_map_lookup_elem(&syscall_accept_args,
+                                                          &tgid);
+  if (!args)
+    return BPF_OK;
+
+  struct sock *sk = (struct sock *)PT_REGS_RC(ctx);
+  if (sk)
+    args->sk = sk;
+  return BPF_OK;
+}
+
 SEC("tracepoint/syscalls/sys_exit_accept")
 int tp_sys_exit_accept(struct trace_event_raw_sys_exit *ctx) {
-  u64 tgid = bpf_get_current_pid_tgid() >> 32;
+  u32 tgid = bpf_get_current_pid_tgid() >> 32;
   int fd = ctx->ret;
   if (fd < 0) {
     bpf_map_delete_elem(&syscall_accept_args, &tgid);
@@ -407,9 +423,11 @@ int tp_sys_exit_accept(struct trace_event_raw_sys_exit *ctx) {
   struct conn_info_value value = {};
   struct conn_info_key key = {.fd = fd, .tgid = tgid};
 
-  struct sock *sk = NULL;
-  bpf_probe_read_kernel(&sk, sizeof(sk),
-                        (void *)args->skt + offsetof(struct socket, sk));
+  struct sock *sk = args->sk;
+  if (!sk && args->skt) {
+    bpf_probe_read_kernel(&sk, sizeof(sk),
+                          (void *)args->skt + offsetof(struct socket, sk));
+  }
   populate_conn_info(sk, POSITIVE_CONN, &value);
   bpf_map_update_elem(&conn_info_map, &key, &value, BPF_ANY);
 

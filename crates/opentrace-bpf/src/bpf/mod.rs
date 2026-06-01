@@ -18,4 +18,3 @@ pub mod socket_trace {
         "/src/bpf/socket_trace.skel.rs"
     ));
 }
-

@@ -3,6 +3,7 @@ use crate::EbpfError;
 
 pub(crate) mod family {
     pub(crate) const AF_INET: u16 = 2;
+    #[allow(dead_code)]
     pub(crate) const AF_INET6: u16 = 10;
 }
 

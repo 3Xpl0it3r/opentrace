@@ -1,8 +1,6 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 // DefaultFormatter[#TODO] (shoule add some comments )
 
-use std::fmt::Write;
-
 use crate::format::StreamFormatter;
 use crate::protocols::ip_proto::family;
 use crate::types::net::{Addr, AddrV4, AddrV6};
@@ -69,11 +67,11 @@ impl StreamFormatter<Event> for DefaultFormatter {
             return Ok(());
         }
 
-        let addr_str = if event.family == family::AF_INET as u16 {
+        if event.family == family::AF_INET {
             display_simple_event_as_v4(w, event, target);
         } else {
             display_simple_event_as_v6(w, event, target);
-        };
+        }
         Ok(())
     }
 }
@@ -85,7 +83,7 @@ fn display_remote_host_information(
     port: u16,
     family: u16,
 ) {
-    if family == family::AF_INET as u16 {
+    if family == family::AF_INET {
         let _ = writeln!(w, "远程主机: {}:{}", AddrV4::from(addr), port);
     } else {
         let _ = writeln!(w, "远程主机: {}:{}", AddrV6::from(addr), port);
@@ -93,7 +91,7 @@ fn display_remote_host_information(
 }
 #[inline]
 fn display_simple_event_as_v4(w: &mut impl std::io::Write, event: &Event, target: &str) {
-    writeln!(
+    let _ = writeln!(
         w,
         "{} | {} | {} | req_size: {} | resp_size: {} | cost: {}",
         time::TimeAsNanosecond(event.timestamp),
@@ -105,7 +103,7 @@ fn display_simple_event_as_v4(w: &mut impl std::io::Write, event: &Event, target
     );
 }
 fn display_simple_event_as_v6(w: &mut impl std::io::Write, event: &Event, target: &str) {
-    writeln!(
+    let _ = writeln!(
         w,
         "{} | {} | {} | req_size: {} | resp_size: {} | cost: {}",
         time::TimeAsNanosecond(event.timestamp),
