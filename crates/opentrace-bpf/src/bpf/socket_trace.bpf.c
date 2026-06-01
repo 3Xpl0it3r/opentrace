@@ -4,7 +4,7 @@
 #include "libbpf/src/bpf_tracing.h"
 #include "libbpf/src/bpf_helpers.h"
 
-#include "include/common.h"
+#include "include/bpf_compat.h"
 #include "include/net_types.h"
 #include "include/ebpf_map.h"
 #include "include/sock_helper.h"
@@ -31,8 +31,6 @@ struct event_t {
   u16 remote_port;
   u16 local_port;
 };
-
-static const u8 config_key = 0;
 
 enum conn_kind {
   UNKNOWN_CONN = 0,
@@ -131,14 +129,11 @@ static __always_inline void populate_conn_info(const struct sock *sk,
   sock_remote_port(sk, &value->remote_port);
   value->family = family;
   value->conn_kind = (int)conn_kind;
-  char laddr[16];
-  char raddr[16];
-  be32_to_ipv4_str(value->remote_addr.v4addr, raddr);
-  be32_to_ipv4_str(value->local_addr.v4addr, laddr);
 }
 
 static __always_inline bool filter_with_pid(u32 pid) {
-  struct config_t *cfg = bpf_map_lookup_elem(&config_map, &config_key);
+  u8 key = 0;
+  struct config_t *cfg = bpf_map_lookup_elem(&config_map, &key);
   if (!cfg)
     return false;
   return cfg->tgid == pid;
@@ -157,8 +152,13 @@ static __always_inline void stash_active_rw_args(int fd, void *ubuf,
   if (!value) {
     return;
   }
-  struct syscall_rw_args_t args = {
-      .fd = fd, .ubuf = ubuf, .is_socket = 1, .iovec = iovec, .iovlen = iovlen};
+  struct syscall_rw_args_t args;
+  __builtin_memset(&args, 0, sizeof(args));
+  args.fd = fd;
+  args.ubuf = ubuf;
+  args.is_socket = 1;
+  args.iovec = iovec;
+  args.iovlen = iovlen;
   bpf_map_update_elem(args_map, &tgid, &args, BPF_ANY);
 }
 
@@ -293,7 +293,10 @@ int tp_sys_enter_connect(struct trace_event_raw_sys_enter *ctx) {
   if (filter_with_pid(tgid) == false)
     return BPF_OK;
   int fd = ctx->args[0];
-  struct syscall_conn_args_t args = {.fd = fd, .sk = NULL};
+  struct syscall_conn_args_t args;
+  __builtin_memset(&args, 0, sizeof(args));
+  args.fd = fd;
+  args.sk = NULL;
   bpf_map_update_elem(&syscall_conn_args, &tgid, &args, BPF_ANY);
   return BPF_OK;
 }
@@ -361,7 +364,11 @@ int tp_sys_enter_accept(struct trace_event_raw_sys_enter *ctx) {
     return BPF_OK;
   struct sockaddr *uservadd = (struct sockaddr *)ctx->args[1];
   // 这个地址存储下来主要是用备用，万一sock_alloc由于某些原因没有被触发的时候，这个时候可以拿着这个地址来解析远程的地址信息
-  struct syscall_accept_args_t args = {.fd = 0, .skt = NULL, .addr = uservadd};
+  struct syscall_accept_args_t args;
+  __builtin_memset(&args, 0, sizeof(args));
+  args.fd = 0;
+  args.skt = NULL;
+  args.addr = uservadd;
   bpf_map_update_elem(&syscall_accept_args, &tgid, &args, BPF_ANY);
   return BPF_OK;
 }

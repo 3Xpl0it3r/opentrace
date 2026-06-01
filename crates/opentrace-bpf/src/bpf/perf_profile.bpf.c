@@ -1,8 +1,9 @@
 #include "vmlinux.h"
+
 #include "libbpf/src/bpf_helpers.h"
 
-#include "include/common.h"
 #include "include/ebpf_map.h"
+#include "include/bpf_compat.h"
 
 #define PERF_MAX_STACK_DEPTH 16
 

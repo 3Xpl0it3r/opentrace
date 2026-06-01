@@ -3,10 +3,6 @@
 
 #include "libbpf/src/bpf_helpers.h"
 
-// 4.19内核里面测试发现vmlinux并没有这个变量定义导致报错
-#ifndef BPF_F_CURRENT_CPU
-#define BPF_F_CURRENT_CPU 0xFFFFFFFFULL
-#endif
 
 #ifndef KERNEL_VERSION
 #define KERNEL_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + (c))

@@ -3,12 +3,12 @@
 #include "libbpf/src/bpf_helpers.h"
 #include "libbpf/src/bpf_tracing.h"
 
-#include "include/common.h"
 #include "include/ebpf_map.h"
 #include "include/net_filter.h"
 #include "include/skb_helper.h"
 #include "include/net_types.h"
 #include "include/process.h"
+#include "include/bpf_compat.h"
 
 #define PERF_MAX_STACK_DEPTH 16
 
