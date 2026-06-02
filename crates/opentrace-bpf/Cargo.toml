@@ -1,7 +1,13 @@
 [package]
 name = "opentrace-bpf"
-version = "0.1.0"
-edition = "2024"
+publish.workspace = true
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Core eBPF communication library for kernel data collection"
 
 [lib]
 name = "opentrace_bpf"  
@@ -16,7 +22,6 @@ vmlinux = { git = "https://github.com/libbpf/vmlinux.h.git", rev = "83a228cf37fc
 [dependencies]
 libbpf-rs = {workspace = true}
 libc = { workspace = true } 
-clap = {workspace = true}
 thiserror = { workspace = true } 
 serde = {workspace=true}
 serde_json = {workspace = true}

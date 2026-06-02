@@ -1,5 +1,5 @@
 [package]
-name = "opentrace-server"
+name = "opentrace-codegen"
 publish.workspace = true
 edition.workspace = true
 version.workspace = true
@@ -7,10 +7,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Management server with Web UI for MCP servers and Agents"
+description = "Code generation for templates and scaffolding"
 
 [[bin]]
-name = "opentrace-server"  
+name = "opentrace-codegen"  
 path = "src/bin/opentrace.rs"
 
 [dependencies]

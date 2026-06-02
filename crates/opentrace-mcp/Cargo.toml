@@ -1,7 +1,13 @@
 [package]
 name = "opentrace-mcp"
-version = "0.1.0"
-edition = "2024"
+publish.workspace = true
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "MCP server for agent coordination and data routing"
 
 
 [[bin]]
@@ -9,8 +15,8 @@ name = "opentrace-mcp"
 path = "src/bin/opentrace.rs"
 
 [dependencies]
-opentrace-bpf = {path = "../opentrace-bpf"}
-opentrace-server = {workspace = true}
+opentrace-bpf = {workspace = true}
+opentrace-common = {workspace = true}
 thiserror = { workspace = true } 
 serde = {workspace = true}
 clap = {workspace = true}
@@ -19,4 +25,3 @@ rmcp = {workspace = true}
 tokio = {workspace = true}
 tokio-util = {workspace = true}
 axum = {workspace = true}
-axum-server = { version = "0.8.0", features = ["tls-rustls"] }

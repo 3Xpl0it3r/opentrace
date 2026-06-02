@@ -1,0 +1,21 @@
+[package]
+name = "opentrace-common"
+publish.workspace = true
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Common types and utilities shared across workspace"
+
+[lib]
+name = "opentrace_common"  
+path = "src/lib.rs"          
+crate-type = ["lib"]        
+
+[dependencies]
+thiserror = { workspace = true } 
+tokio = {workspace = true}
+axum = {workspace = true}
+axum-server = {workspace = true}

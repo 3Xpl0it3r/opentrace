@@ -6,9 +6,11 @@ use axum::middleware;
 use axum::{Router, http::StatusCode, routing::get};
 use axum_server::tls_rustls::RustlsConfig;
 
-use crate::authentication::{AuthState, bearer_auth_middleware};
-use crate::config::{Config, SecurityConfig};
-use crate::errors::ServerError;
+use super::Config;
+use super::authentication::AuthState;
+use super::authentication::bearer_auth_middleware;
+use super::config::SecurityConfig;
+use super::errors::ServerError;
 
 const HEALTH_ENDPOINT: &str = "/healthz";
 /* const METRIC_ENDPOINT: &str = "/mtrics"; */
@@ -23,9 +25,9 @@ impl Server {
     pub fn new(cfg: Config) -> Self {
         let mut router = Router::new();
 
-        if !cfg.authz.bear_token.is_empty() {
+        if !cfg.bear_token.is_empty() {
             let auth_state = AuthState {
-                bearer_token: Arc::from(cfg.authz.bear_token.clone()),
+                bearer_token: Arc::from(cfg.bear_token.clone()),
             };
             router = Router::new().layer(middleware::from_fn_with_state(
                 auth_state.clone(),
@@ -37,7 +39,7 @@ impl Server {
     }
 
     pub async fn run(self) -> Result<(), ServerError> {
-        if self.cfg.security_config.is_tls() {
+        if self.cfg.is_tls() {
             self.serve_tls().await
         } else {
             self.serve().await;
@@ -71,12 +73,12 @@ impl Server {
     pub async fn serve_tls(self) -> Result<(), ServerError> {
         let addr: std::net::SocketAddr = format!("0.0.0.0:{}", self.cfg.bind_port)
             .parse()
-            .map_err(|e| ServerError::Other(format!("Invalid address: {}", e)))?;
-        let tls_config = build_tls_config(&self.cfg.security_config).await?;
+            .map_err(|e| ServerError::Other(format!("parse address failed: {}", e)))?;
+        let tls_config = build_tls_config((&self.cfg).into()).await?;
         axum_server::bind_rustls(addr, tls_config)
             .serve(self.router.into_make_service())
             .await
-            .map_err(|e| ServerError::Other(format!("Server error: {}", e)))?;
+            .map_err(|e| ServerError::Other(format!("bind tls failed {}", e)))?;
         Ok(())
     }
 }
@@ -85,11 +87,11 @@ async fn health_handler() -> StatusCode {
     StatusCode::OK
 }
 
-async fn build_tls_config(security_config: &SecurityConfig) -> Result<RustlsConfig, ServerError> {
+async fn build_tls_config(security_config: SecurityConfig) -> Result<RustlsConfig, ServerError> {
     RustlsConfig::from_pem_file(
         &security_config.server_cert,
         &security_config.server_cert_key,
     )
     .await
-    .map_err(|e| ServerError::Other(format!("Failed to load TLS config: {}", e)))
+    .map_err(|e| ServerError::Other(format!("faile build tls config {}", e)))
 }

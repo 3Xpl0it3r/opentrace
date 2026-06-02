@@ -1,11 +1,14 @@
-// Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
+pub fn add(left: u64, right: u64) -> u64 {
+    left + right
+}
 
-mod authentication;
-pub mod config;
-mod server;
-mod errors;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-pub use config::{AuthorizationConfig, Config as ServerConfig, SecurityConfig};
-pub use server::Server as GenericServer;
-
-pub use errors::ServerError;
+    #[test]
+    fn it_works() {
+        let result = add(2, 2);
+        assert_eq!(result, 4);
+    }
+}

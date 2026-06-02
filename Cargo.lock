@@ -1014,11 +1014,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4895175b425cb1f87721b59f0f286c2092bd4af812243672510e1ac53e2e0ad"
 
 [[package]]
+name = "opentrace-agent"
+version = "0.0.1"
+
+[[package]]
 name = "opentrace-bpf"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "blazesym",
- "clap",
  "libbpf-cargo",
  "libbpf-rs",
  "libc",
@@ -1033,7 +1036,7 @@ dependencies = [
 
 [[package]]
 name = "opentrace-cli"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "clap",
  "opentrace-bpf",
@@ -1045,14 +1048,27 @@ dependencies = [
 ]
 
 [[package]]
-name = "opentrace-mcp"
+name = "opentrace-codegen"
+version = "0.0.1"
+
+[[package]]
+name = "opentrace-common"
 version = "0.1.0"
 dependencies = [
  "axum",
  "axum-server",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "opentrace-mcp"
+version = "0.0.1"
+dependencies = [
+ "axum",
  "clap",
  "opentrace-bpf",
- "opentrace-server",
+ "opentrace-common",
  "rmcp",
  "serde",
  "serde_json",
@@ -1063,16 +1079,7 @@ dependencies = [
 
 [[package]]
 name = "opentrace-server"
-version = "0.1.0"
-dependencies = [
- "axum",
- "axum-server",
- "clap",
- "libc",
- "opentrace-bpf",
- "thiserror",
- "tokio",
-]
+version = "0.0.1"
 
 [[package]]
 name = "paste"

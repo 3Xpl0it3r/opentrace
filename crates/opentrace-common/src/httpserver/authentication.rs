@@ -24,7 +24,7 @@ fn write_401(error_type: &str, message: &str) -> Response {
         .into_response()
 }
 
-pub(crate) async fn bearer_auth_middleware(
+pub(super) async fn bearer_auth_middleware(
     State(auth_state): State<AuthState>,
     headers: HeaderMap,
     request: Request<Body>,

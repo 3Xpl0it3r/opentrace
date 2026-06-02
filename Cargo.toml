@@ -3,9 +3,9 @@ resolver = "3"
 members = [
     "crates/opentrace-cli",
     "crates/opentrace-bpf", 
-    "crates/opentrace-server", 
+    "crates/opentrace-common", 
     "crates/opentrace-mcp"
-]
+, "crates/opentrace-server", "crates/opentrace-codegen", "crates/opentrace-agent"]
 default-members = ["crates/opentrace-mcp"]
 
 [workspace.package]
@@ -29,7 +29,7 @@ panic = "abort"
 # Workspace member crates
 #
 opentrace-bpf = { path = "crates/opentrace-bpf"}
-opentrace-server = { path = "crates/opentrace-server"}
+opentrace-common = { path = "crates/opentrace-common"}
 
 #
 # Third party crates

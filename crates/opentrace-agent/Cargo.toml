@@ -1,5 +1,5 @@
 [package]
-name = "opentrace-server"
+name = "opentrace-agent"
 publish.workspace = true
 edition.workspace = true
 version.workspace = true
@@ -7,10 +7,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Management server with Web UI for MCP servers and Agents"
+description = "Agent service exposing eBPF metrics/events as Prometheus endpoints"
 
 [[bin]]
-name = "opentrace-server"  
+name = "opentrace-agent"  
 path = "src/bin/opentrace.rs"
 
 [dependencies]
