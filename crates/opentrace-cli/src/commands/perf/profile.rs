@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use opentrace_bpf::collectors::Collector;
 use opentrace_bpf::collectors::cpu::{ProfileCollector, ProfileEvent, ProfileStackStorage};
-use opentrace_bpf::exporters::SimpleUnboundChannelExporter;
+use opentrace_bpf::sinks::UnboundedChannelSink;
 use opentrace_bpf::symbolizers::{Source, SymbolizerProvider};
 
 use crate::errors::CliError;
@@ -31,8 +31,8 @@ pub async fn run_as_profile(
     symbolizer_provider.register(&source);
     let symbolizer = symbolizer_provider.get_symbolizer(&source);
 
-    let (exporter, mut event_rx) = SimpleUnboundChannelExporter::<ProfileEvent, _>::new();
-    let mut collector = ProfileCollector::new(object, options.to_config(ctx), exporter)?;
+    let (sink, mut event_rx) = UnboundedChannelSink::<ProfileEvent, _>::new();
+    let mut collector = ProfileCollector::new(object, options.to_config(ctx), sink)?;
     collector.attach_probe()?;
 
     let mut stack_storage = ProfileStackStorage::default();

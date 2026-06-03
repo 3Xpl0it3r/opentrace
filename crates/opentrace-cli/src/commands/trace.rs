@@ -5,7 +5,7 @@ use std::time::Duration;
 use opentrace_bpf::ProbeRegistry;
 use opentrace_bpf::collectors::Collector;
 use opentrace_bpf::collectors::net::{SkbdropCollector, SkbdropEventDefaultFormatter};
-use opentrace_bpf::exporters::StreamWriterExpoter;
+use opentrace_bpf::sinks::StreamWriterSink;
 use opentrace_bpf::symbolizers::{self, Source};
 
 use crate::errors::CliError;
@@ -40,7 +40,7 @@ fn run_as_skbdrop(
         object,
         registry,
         options.to_config(ctx).into(),
-        StreamWriterExpoter::new(
+        StreamWriterSink::new(
             std::io::stdout(),
             SkbdropEventDefaultFormatter::new(symbolizer),
         ),

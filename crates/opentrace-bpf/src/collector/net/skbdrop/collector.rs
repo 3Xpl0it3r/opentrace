@@ -8,8 +8,8 @@ use libbpf_rs::{MapCore, MapFlags, OpenObject, PerfBufferBuilder};
 use crate::bpf::skbdrop::{SkbdropSkel, SkbdropSkelBuilder};
 use crate::env;
 use crate::errors::EbpfError;
-use crate::exporter::{Exporter, helper::load_and_dispatch};
 use crate::probe::Registry as ProbeRegistry;
+use crate::sink::{EventSink, helper::load_and_dispatch};
 use crate::skeleton::with_custom_btf_open_opts;
 
 use crate::collector::macros::{attach_kprobe, attach_kretprobe, define_collector};
@@ -36,7 +36,7 @@ impl<'a> Collector<'a> {
         object: &'a mut MaybeUninit<OpenObject>,
         registry: &'a ProbeRegistry,
         config: Config,
-        mut exporter: impl Exporter<Event> + 'a,
+        mut sink: impl EventSink<Event> + 'a,
     ) -> Result<Self, EbpfError> {
         let skel = match config.custom_btf_path {
             Some(ref custom_btf_path) => with_custom_btf_open_opts(custom_btf_path, |open_opts| {
@@ -58,7 +58,7 @@ impl<'a> Collector<'a> {
 
         let perf_buffer = PerfBufferBuilder::new(&skel.maps.perf_events)
             .sample_cb(move |_cpu: i32, data: &[u8]| {
-                load_and_dispatch::<Event, _>(data, &mut exporter);
+                load_and_dispatch::<Event, _>(data, &mut sink);
             })
             .build()?;
 

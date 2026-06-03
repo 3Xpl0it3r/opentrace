@@ -12,8 +12,8 @@ use crate::collector::macros::{
     attach_kprobe, attach_kretprobe, attach_multiple_tracepoints, attach_tracepoint,
     define_collector,
 };
-use crate::exporter::{Exporter, helper::load_and_dispath_with};
 use crate::protocol::{ParsedFrame, ProtoParser};
+use crate::sink::{EventSink, helper::load_and_dispath_with};
 use crate::skeleton::with_custom_btf_open_opts;
 use crate::{EbpfError, ProbeRegistry};
 
@@ -30,7 +30,7 @@ impl<'a> Collector<'a> {
         object: &'a mut MaybeUninit<OpenObject>,
         registry: &'a ProbeRegistry,
         config: Config,
-        mut exporter: impl Exporter<Event> + 'a,
+        mut sink: impl EventSink<Event> + 'a,
         proto_parser: impl ProtoParser<Output = impl ParsedFrame> + 'a,
     ) -> Result<Self, EbpfError> {
         let skel = match config.custom_btf_path {
@@ -51,7 +51,7 @@ impl<'a> Collector<'a> {
         let mut event_cache = EventMatcher::new(proto_parser, verbose);
         let perf_buffer = PerfBufferBuilder::new(&skel.maps.perf_events)
             .sample_cb(move |_cpu: i32, data: &[u8]| {
-                load_and_dispath_with(data, &mut exporter, |data| {
+                load_and_dispath_with(data, &mut sink, |data| {
                     let inner_event =
                         unsafe { std::ptr::read_unaligned(data.as_ptr() as *const InnerEvent) };
                     event_cache.try_match(inner_event)

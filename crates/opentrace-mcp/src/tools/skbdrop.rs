@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use opentrace_bpf::exporters::SimpleUnboundChannelExporter;
+use opentrace_bpf::sinks::UnboundedChannelSink;
 use rmcp::model::{CallToolResult, Content};
 use rmcp::{ErrorData, schemars};
 use serde::Deserialize;
@@ -125,12 +125,12 @@ fn run_skbdrop_blocking(
     let symbolizer = provider.get_symbolizer(&Source::Kernel);
     let formatter = SkbdropEventDefaultFormatter::new(symbolizer);
 
-    let (exporter, rx) = SimpleUnboundChannelExporter::<SkbdropEvent, SkbdropEvent>::new();
+    let (sink, rx) = UnboundedChannelSink::<SkbdropEvent, SkbdropEvent>::new();
     let mut collector = SkbdropCollector::new(
         &mut open_project,
         probe_registry.as_ref(),
         params.into_config()?,
-        exporter,
+        sink,
     )
     .map_err(MCPError::from)?;
     collector.attach_probe().map_err(MCPError::from)?;

@@ -7,7 +7,7 @@ mod probe;
 mod symbolizer;
 mod formatter;
 mod protocol;
-mod exporter;
+mod sink;
 
 mod bpf;
 
@@ -20,11 +20,11 @@ pub mod testing;
 
 // 重新导出
 
-pub mod exporters {
-    pub use crate::exporter::Exporter;
-    pub use crate::exporter::SimpleBoundChannelExpoter;
-    pub use crate::exporter::SimpleUnboundChannelExporter;
-    pub use crate::exporter::StreamWriterExpoter;
+pub mod sinks {
+    pub use crate::sink::BoundedChannelSink;
+    pub use crate::sink::EventSink;
+    pub use crate::sink::StreamWriterSink;
+    pub use crate::sink::UnboundedChannelSink;
 }
 
 pub mod probes {

@@ -2,18 +2,18 @@
 
 use std::marker::PhantomData;
 
-use super::Exporter;
+use super::EventSink;
 use crate::formatter::StreamFormatter;
 
-// DefaultStdoutExporter[#TODO] (shoule add some comments )
+// DefaultStdoutSink[#TODO] (should add some comments)
 #[derive(Default)]
-pub struct StreamWriterExpoter<E, F: StreamFormatter<E>, W: std::io::Write> {
+pub struct StreamWriterSink<E, F: StreamFormatter<E>, W: std::io::Write> {
     pub formater: F,
     _phantom: PhantomData<E>,
     pub writer: W,
 }
 
-impl<E, F: StreamFormatter<E>, W: std::io::Write> StreamWriterExpoter<E, F, W> {
+impl<E, F: StreamFormatter<E>, W: std::io::Write> StreamWriterSink<E, F, W> {
     pub fn new(w: W, formatter: F) -> Self {
         Self {
             formater: formatter,
@@ -23,7 +23,7 @@ impl<E, F: StreamFormatter<E>, W: std::io::Write> StreamWriterExpoter<E, F, W> {
     }
 }
 
-impl<E, F: StreamFormatter<E>, W: std::io::Write> Exporter<E> for StreamWriterExpoter<E, F, W> {
+impl<E, F: StreamFormatter<E>, W: std::io::Write> EventSink<E> for StreamWriterSink<E, F, W> {
     fn dispatch(&mut self, event: E) {
         let _ = self.formater.format(&mut self.writer, &event);
     }
@@ -33,9 +33,9 @@ impl<E, F: StreamFormatter<E>, W: std::io::Write> Exporter<E> for StreamWriterEx
 mod tests {
     use std::io;
 
-    use super::StreamWriterExpoter;
-    use crate::exporter::Exporter;
+    use super::StreamWriterSink;
     use crate::formatter::StreamFormatter;
+    use crate::sink::EventSink;
 
     #[derive(Default)]
     struct TestFormatter;
@@ -48,11 +48,11 @@ mod tests {
 
     #[test]
     fn dispatch_writes_formatted_event_to_writer() {
-        let mut exporter = StreamWriterExpoter::new(Vec::new(), TestFormatter);
+        let mut sink = StreamWriterSink::new(Vec::new(), TestFormatter);
 
-        exporter.dispatch(42);
+        sink.dispatch(42);
 
-        assert_eq!(String::from_utf8(exporter.writer).unwrap(), "value=42");
+        assert_eq!(String::from_utf8(sink.writer).unwrap(), "value=42");
     }
 
     #[derive(Default)]
@@ -66,23 +66,23 @@ mod tests {
 
     #[test]
     fn dispatch_ignores_formatter_errors() {
-        let mut exporter = StreamWriterExpoter::new(Vec::new(), FailingFormatter);
+        let mut sink = StreamWriterSink::new(Vec::new(), FailingFormatter);
 
-        exporter.dispatch(42);
+        sink.dispatch(42);
 
-        assert!(exporter.writer.is_empty());
+        assert!(sink.writer.is_empty());
     }
 
     #[test]
     fn multiple_dispatches_accumulate() {
-        let mut exporter = StreamWriterExpoter::new(Vec::new(), TestFormatter);
+        let mut sink = StreamWriterSink::new(Vec::new(), TestFormatter);
 
-        exporter.dispatch(1);
-        exporter.dispatch(2);
-        exporter.dispatch(3);
+        sink.dispatch(1);
+        sink.dispatch(2);
+        sink.dispatch(3);
 
         assert_eq!(
-            String::from_utf8(exporter.writer).unwrap(),
+            String::from_utf8(sink.writer).unwrap(),
             "value=1value=2value=3"
         );
     }
@@ -90,9 +90,9 @@ mod tests {
     #[test]
     fn dispatches_into_non_empty_writer() {
         let mut buf = Vec::from(b"prefix|".as_slice());
-        let mut exporter = StreamWriterExpoter::new(&mut buf, TestFormatter);
+        let mut sink = StreamWriterSink::new(&mut buf, TestFormatter);
 
-        exporter.dispatch(99);
+        sink.dispatch(99);
 
         let output = String::from_utf8(buf).unwrap();
         assert!(output.starts_with("prefix|"));

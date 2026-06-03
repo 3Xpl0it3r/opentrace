@@ -3,8 +3,8 @@ use std::time::Duration;
 use opentrace_bpf::ProbeRegistry;
 use opentrace_bpf::collectors::Collector;
 use opentrace_bpf::collectors::net::{SocketTcpCollector, SocketTcpFormatter};
-use opentrace_bpf::exporters::StreamWriterExpoter;
 use opentrace_bpf::protocols::app_protos::HttpParser;
+use opentrace_bpf::sinks::StreamWriterSink;
 
 use crate::errors::CliError;
 use crate::options::CliOptsCtx;
@@ -38,7 +38,7 @@ fn run_watch_elastic(
         object,
         registry,
         options.to_config(ctx),
-        StreamWriterExpoter::new(std::io::stdout(), SocketTcpFormatter::new(verbose)),
+        StreamWriterSink::new(std::io::stdout(), SocketTcpFormatter::new(verbose)),
         HttpParser::default(),
     )?;
     collector.attach_probe()?;

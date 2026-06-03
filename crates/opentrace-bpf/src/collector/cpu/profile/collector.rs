@@ -10,7 +10,7 @@ use crate::EbpfError;
 use crate::bpf::perf_profile::{self, PerfProfileSkelBuilder};
 use crate::collector::Collector as CollectorTrait;
 use crate::collector::macros::attach_perf_event;
-use crate::exporter::Exporter;
+use crate::sink::EventSink;
 use crate::skeleton::with_custom_btf_open_opts;
 use crate::utils::procfs;
 use crate::utils::syscall::PerfEventFdBuilder;
@@ -32,7 +32,7 @@ impl<'a> Collector<'a> {
     pub fn new(
         object: &'a mut MaybeUninit<OpenObject>,
         config: Config,
-        mut exporter: impl Exporter<Event> + 'a,
+        mut sink: impl EventSink<Event> + 'a,
     ) -> Result<Self, EbpfError> {
         let pfds = build_perf_event_fds(config.cpu, config.pid)?;
         let skel = open_skel(object, config.custom_btf_path.as_deref())?;
@@ -40,7 +40,7 @@ impl<'a> Collector<'a> {
         let perf_buffer = PerfBufferBuilder::new(&skel.maps.perf_events)
             .sample_cb(move |_cpu: i32, data: &[u8]| {
                 let event = unsafe { std::ptr::read_unaligned(data.as_ptr() as *const InnerEvent) };
-                exporter.dispatch(event.into());
+                sink.dispatch(event.into());
             })
             .build()?;
 
@@ -110,5 +110,5 @@ impl<'a> CollectorTrait for Collector<'a> {
     }
 }
 
-// 提供默认的Expoter,
+// 提供默认的Sink,
 // profile的行为相对比较固定，只需要把用户/内核栈的栈地址发送给用户就可以了,没有多少的format操作

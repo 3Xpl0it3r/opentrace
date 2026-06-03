@@ -2,14 +2,14 @@
 
 use std::marker::PhantomData;
 
-use super::Exporter;
+use super::EventSink;
 
-pub struct SimpleUnboundChannelExporter<T, E: Into<T>> {
+pub struct UnboundedChannelSink<T, E: Into<T>> {
     event_tx: tokio::sync::mpsc::UnboundedSender<T>,
     _phantom: PhantomData<E>,
 }
 
-impl<T, E: Into<T>> SimpleUnboundChannelExporter<T, E> {
+impl<T, E: Into<T>> UnboundedChannelSink<T, E> {
     pub fn new() -> (Self, tokio::sync::mpsc::UnboundedReceiver<T>) {
         let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel::<T>();
         (
@@ -22,11 +22,11 @@ impl<T, E: Into<T>> SimpleUnboundChannelExporter<T, E> {
     }
 }
 
-pub struct SimpleBoundChannelExpoter<E> {
+pub struct BoundedChannelSink<E> {
     _event_tx: tokio::sync::mpsc::Sender<E>,
 }
 
-impl<E> SimpleBoundChannelExpoter<E> {
+impl<E> BoundedChannelSink<E> {
     pub fn new(capacity: usize) -> (Self, tokio::sync::mpsc::Receiver<E>) {
         let (event_tx, event_rx) = tokio::sync::mpsc::channel::<E>(capacity);
         (
@@ -38,7 +38,7 @@ impl<E> SimpleBoundChannelExpoter<E> {
     }
 }
 
-impl<T, E: Into<T>> Exporter<E> for SimpleUnboundChannelExporter<T, E> {
+impl<T, E: Into<T>> EventSink<E> for UnboundedChannelSink<T, E> {
     fn dispatch(&mut self, event: E) {
         let _ = self.event_tx.send(event.into());
     }
@@ -48,33 +48,33 @@ impl<T, E: Into<T>> Exporter<E> for SimpleUnboundChannelExporter<T, E> {
 mod tests {
     use tokio_test::block_on;
 
-    use super::{SimpleBoundChannelExpoter, SimpleUnboundChannelExporter};
-    use crate::exporter::Exporter;
+    use super::{BoundedChannelSink, UnboundedChannelSink};
+    use crate::sink::EventSink;
 
     #[test]
-    fn unbounded_exporter_sends_converted_events() {
-        let (mut exporter, mut rx) = SimpleUnboundChannelExporter::<String, &str>::new();
+    fn unbounded_sink_sends_converted_events() {
+        let (mut sink, mut rx) = UnboundedChannelSink::<String, &str>::new();
 
-        exporter.dispatch("hello");
+        sink.dispatch("hello");
 
         let received = block_on(rx.recv()).unwrap();
         assert_eq!(received, "hello");
     }
 
     #[test]
-    fn bounded_exporter_creates_receiver_with_requested_capacity() {
-        let (_exporter, rx) = SimpleBoundChannelExpoter::<u32>::new(8);
+    fn bounded_sink_creates_receiver_with_requested_capacity() {
+        let (_sink, rx) = BoundedChannelSink::<u32>::new(8);
 
         assert_eq!(rx.max_capacity(), 8);
     }
 
     #[test]
     fn unbounded_channel_collects_multiple_events() {
-        let (mut exporter, mut rx) = SimpleUnboundChannelExporter::<String, &str>::new();
+        let (mut sink, mut rx) = UnboundedChannelSink::<String, &str>::new();
 
-        exporter.dispatch("a");
-        exporter.dispatch("b");
-        exporter.dispatch("c");
+        sink.dispatch("a");
+        sink.dispatch("b");
+        sink.dispatch("c");
 
         assert_eq!(block_on(rx.recv()).unwrap(), "a");
         assert_eq!(block_on(rx.recv()).unwrap(), "b");
@@ -83,16 +83,16 @@ mod tests {
 
     #[test]
     fn unbounded_channel_converts_event_with_into() {
-        let (mut exporter, mut rx) = SimpleUnboundChannelExporter::<u64, u32>::new();
+        let (mut sink, mut rx) = UnboundedChannelSink::<u64, u32>::new();
 
-        exporter.dispatch(42u32);
+        sink.dispatch(42u32);
 
         assert_eq!(block_on(rx.recv()).unwrap(), 42u64);
     }
 
     #[test]
     fn bounded_channel_default_capacity() {
-        let (_exporter, rx) = SimpleBoundChannelExpoter::<u32>::new(1);
+        let (_sink, rx) = BoundedChannelSink::<u32>::new(1);
 
         assert_eq!(rx.max_capacity(), 1);
     }
