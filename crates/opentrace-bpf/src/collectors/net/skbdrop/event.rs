@@ -19,8 +19,8 @@ pub struct Event {
     /* pub pkt_info: PktInfo, */
     pub stack_size: i64,
     pub stack: [u64; 16],
-    drop_reason: u8,
-    drop_source: u8,
+    pub drop_reason: u8,
+    pub drop_source: u8,
 }
 
 impl Event {
@@ -69,5 +69,64 @@ impl<'de> Deserialize<'de> for Event {
         D: serde::Deserializer<'de>,
     {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DROP_SRC_KFREE_SKB, DROP_SRC_NF_HOOK, Event};
+    use crate::types::net::{Addr, L2Info, L3Info, L4Info};
+
+    fn event(stack_size: i64) -> Event {
+        Event {
+            l2_info: L2Info { eth_proto: 0 },
+            l3_info: L3Info {
+                saddr: Addr { v4addr: 0 },
+                daddr: Addr { v4addr: 0 },
+                tot_len: 0,
+                ip_version: 4,
+                l4_proto: 6,
+            },
+            l4_info: L4Info {
+                sport: 0,
+                dport: 0,
+                tcpflags: 0,
+            },
+            stack_size,
+            stack: [0; 16],
+            drop_reason: 0,
+            drop_source: DROP_SRC_KFREE_SKB,
+        }
+    }
+
+    #[test]
+    fn translates_drop_source() {
+        let mut event = event(0);
+        assert_eq!(event.drop_source_str(), "kfree_skb");
+
+        event.drop_source = DROP_SRC_NF_HOOK;
+        assert_eq!(event.drop_source_str(), "nf_hook(drop/reject)");
+
+        event.drop_source = 99;
+        assert_eq!(event.drop_source_str(), "unknown");
+    }
+
+    #[test]
+    fn serializes_stack_when_stack_size_is_positive() {
+        let mut event = event(16);
+        event.stack[0] = 1;
+        event.stack[1] = 2;
+
+        let value = serde_json::to_value(event).unwrap();
+
+        assert_eq!(value["source"], "kfree_skb");
+        assert_eq!(value["stack"], serde_json::json!([1, 2]));
+    }
+
+    #[test]
+    fn omits_stack_when_stack_size_is_not_positive() {
+        let value = serde_json::to_value(event(0)).unwrap();
+
+        assert!(value.get("stack").is_none());
     }
 }

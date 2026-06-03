@@ -249,7 +249,7 @@ impl fmt::Debug for AddrV6 {
 
 #[cfg(test)]
 mod tests {
-    use super::{Addr, AddrV6};
+    use super::{Addr, AddrV4, AddrV6, L3Info, L4Info};
 
     #[test]
     fn ipv6_display_uses_network_order_octets() {
@@ -284,5 +284,48 @@ mod tests {
             AddrV6::from(addr).to_string(),
             "2001:db8:102:304:506:708:90a:b0c"
         );
+    }
+
+    #[test]
+    fn ipv4_display_uses_network_order_bytes() {
+        assert_eq!(
+            AddrV4(u32::from_ne_bytes([192, 168, 1, 1])).to_string(),
+            "192.168.1.1"
+        );
+    }
+
+    #[test]
+    fn l3_serialization_uses_ip_version_to_select_address_type() {
+        let info = L3Info {
+            saddr: Addr {
+                v4addr: u32::from_ne_bytes([10, 0, 0, 1]),
+            },
+            daddr: Addr {
+                v4addr: u32::from_ne_bytes([10, 0, 0, 2]),
+            },
+            tot_len: 0,
+            ip_version: 4,
+            l4_proto: 6,
+        };
+
+        let value = serde_json::to_value(info).unwrap();
+
+        assert_eq!(value["src_ip"], "10.0.0.1");
+        assert_eq!(value["dst_ip"], "10.0.0.2");
+        assert_eq!(value["l3_proto"], "IPPROTO_TCP");
+    }
+
+    #[test]
+    fn l4_serialization_converts_ports_from_network_order() {
+        let info = L4Info {
+            sport: u16::to_be(1234),
+            dport: u16::to_be(80),
+            tcpflags: 0,
+        };
+
+        let value = serde_json::to_value(info).unwrap();
+
+        assert_eq!(value["sport"], 1234);
+        assert_eq!(value["dport"], 80);
     }
 }

@@ -4,8 +4,12 @@ members = [
     "crates/opentrace-cli",
     "crates/opentrace-bpf", 
     "crates/opentrace-common", 
-    "crates/opentrace-mcp"
-, "crates/opentrace-server", "crates/opentrace-codegen", "crates/opentrace-agent"]
+    "crates/opentrace-mcp",
+    "crates/opentrace-server",
+    "crates/opentrace-codegen",
+    "crates/opentrace-agent",
+    "crates/opentrace-bpf/fuzz",
+]
 default-members = ["crates/opentrace-mcp"]
 
 [workspace.package]

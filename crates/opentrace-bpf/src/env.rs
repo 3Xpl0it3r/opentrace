@@ -91,3 +91,52 @@ pub fn kernel_version() -> (u32, u32) {
     let minor = it.next().and_then(|s| s.parse().ok()).unwrap_or(0);
     (major, minor)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn validates_btf_magic() {
+        let file = tempfile::NamedTempFile::new().unwrap();
+        fs::write(file.path(), BTF_MAGIC.to_le_bytes()).unwrap();
+
+        assert!(validate_btf_file(file.path()).is_ok());
+    }
+
+    #[test]
+    fn rejects_invalid_btf_magic() {
+        let file = tempfile::NamedTempFile::new().unwrap();
+        fs::write(file.path(), [0, 0]).unwrap();
+
+        assert!(validate_btf_file(file.path()).is_err());
+    }
+
+    #[test]
+    fn rejects_short_file() {
+        let file = tempfile::NamedTempFile::new().unwrap();
+        fs::write(file.path(), [0]).unwrap();
+
+        assert!(validate_btf_file(file.path()).is_err());
+    }
+
+    #[test]
+    fn rejects_nonexistent_file() {
+        assert!(validate_btf_file(Path::new("/nonexistent/path")).is_err());
+    }
+
+    #[test]
+    fn default_custom_btf_path_returns_path_with_vmlinux_btf_name() {
+        let path = default_custom_btf_path().unwrap();
+        assert_eq!(path.file_name().unwrap(), "vmlinux.btf");
+    }
+
+    #[test]
+    fn kernel_version_returns_tuple() {
+        let (major, minor) = kernel_version();
+        // 在 Linux 上应该返回非零值，macOS 上可能返回 (0, 0)
+        // 这里只验证函数不会 panic
+        let _ = (major, minor);
+    }
+}

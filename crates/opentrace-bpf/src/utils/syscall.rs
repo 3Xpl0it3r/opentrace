@@ -101,3 +101,48 @@ impl Default for PerfEventFdBuilder {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_builder_has_expected_values() {
+        let builder = PerfEventFdBuilder::default();
+        assert_eq!(builder.cpu, 0);
+        assert_eq!(builder.tid, 0);
+        assert_eq!(builder.group_id, -1);
+    }
+
+    #[test]
+    fn attach_tid_updates_tid() {
+        let mut builder = PerfEventFdBuilder::default();
+        builder.attach_tid(12345);
+        assert_eq!(builder.tid, 12345);
+    }
+
+    #[test]
+    fn attach_cpu_updates_cpu() {
+        let mut builder = PerfEventFdBuilder::default();
+        builder.attach_cpu(3);
+        assert_eq!(builder.cpu, 3);
+    }
+
+    #[test]
+    fn default_attrs_type_is_software() {
+        let builder = PerfEventFdBuilder::default();
+        assert_eq!(builder.attrs.type_, PERF_TYPE_SOFTWARE);
+    }
+
+    #[test]
+    fn default_attrs_config_is_cpu_clock() {
+        let builder = PerfEventFdBuilder::default();
+        assert_eq!(builder.attrs.config, PERF_COUNT_SW_CPU_CLOCK);
+    }
+
+    #[test]
+    fn default_attrs_sample_period() {
+        let builder = PerfEventFdBuilder::default();
+        assert_eq!(unsafe { builder.attrs.__bindgen_anon_1.sample_period }, DEFAULT_SAMPLE_PERIOD);
+    }
+}

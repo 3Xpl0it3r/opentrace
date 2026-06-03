@@ -14,16 +14,19 @@ pub mod env;
 pub mod types;
 pub mod utils;
 
+#[cfg(feature = "testing")]
+pub mod testing;
+
 // 重新导出
 pub use errors::EbpfError;
 pub use probes::Registry as ProbeRegistry;
 pub use skeleton::{CollectorObject, open_object_storage};
 
 pub mod exporter {
-    pub use crate::exporters::DefaultStdoutExporter;
     pub use crate::exporters::Exporter;
     pub use crate::exporters::SimpleBoundChannelExpoter;
     pub use crate::exporters::SimpleUnboundChannelExporter;
+    pub use crate::exporters::StreamWriterExpoter;
 }
 
 pub mod protocol {

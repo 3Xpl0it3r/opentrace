@@ -14,6 +14,9 @@ name = "opentrace_bpf"
 path = "src/lib.rs"          
 crate-type = ["lib"]        
 
+[features]
+default = []
+testing = []
 
 [build-dependencies]
 libbpf-cargo = "0.26.2"
@@ -29,3 +32,8 @@ tokio = {workspace=true}
 tokio-util = {workspace=true}
 blazesym = "0.2"
 paste = "1"
+
+[dev-dependencies]
+tokio-test = "0.4.5"
+rstest = "0.26.1"
+tempfile = "3"

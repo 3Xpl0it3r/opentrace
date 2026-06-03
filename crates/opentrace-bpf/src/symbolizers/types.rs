@@ -61,3 +61,37 @@ impl ResolvedSymbol<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{BackendKind, ResolvedSymbol, Source};
+
+    #[test]
+    fn source_selects_expected_backend() {
+        assert!(matches!(
+            (Source::CPid { pid: 1 }).backend(),
+            BackendKind::Blaze
+        ));
+        assert!(matches!(Source::Kernel.backend(), BackendKind::Blaze));
+        assert!(matches!(
+            (Source::JavaPid { pid: 1 }).backend(),
+            BackendKind::Java
+        ));
+    }
+
+    #[test]
+    fn source_pid_returns_process_id_when_available() {
+        assert_eq!((Source::CPid { pid: 42 }).pid(), 42);
+        assert_eq!((Source::JavaPid { pid: 7 }).pid(), 7);
+        assert_eq!(Source::Kernel.pid(), 0);
+    }
+
+    #[test]
+    fn unknown_symbol_uses_hex_address_name() {
+        let symbol = ResolvedSymbol::unknown(0xabc, 3);
+
+        assert_eq!(symbol.name.as_ref(), "!0xabc");
+        assert_eq!(symbol.start_addr, 0xabc);
+        assert_eq!(symbol.offset, 3);
+    }
+}

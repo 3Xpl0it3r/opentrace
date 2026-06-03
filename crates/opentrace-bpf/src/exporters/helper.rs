@@ -21,3 +21,49 @@ where
         exporter.dispatch(event);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{load_and_dispatch, load_and_dispath_with};
+    use crate::exporters::Exporter;
+
+    #[derive(Default)]
+    struct VecExporter<T> {
+        events: Vec<T>,
+    }
+
+    impl<T> Exporter<T> for VecExporter<T> {
+        fn dispatch(&mut self, event: T) {
+            self.events.push(event);
+        }
+    }
+
+    #[test]
+    fn load_and_dispatch_ignores_short_buffers() {
+        let mut exporter = VecExporter::<u32>::default();
+
+        load_and_dispatch::<u32, _>(&[1, 2], &mut exporter);
+
+        assert!(exporter.events.is_empty());
+    }
+
+    #[test]
+    fn load_and_dispatch_reads_plain_old_data() {
+        let mut exporter = VecExporter::<u32>::default();
+        let bytes = 42_u32.to_ne_bytes();
+
+        load_and_dispatch::<u32, _>(&bytes, &mut exporter);
+
+        assert_eq!(exporter.events, vec![42]);
+    }
+
+    #[test]
+    fn load_and_dispatch_with_uses_handler_result() {
+        let mut exporter = VecExporter::<u32>::default();
+
+        load_and_dispath_with(&[1, 2, 3], &mut exporter, |data| Some(data.len() as u32));
+        load_and_dispath_with(&[], &mut exporter, |_| None);
+
+        assert_eq!(exporter.events, vec![3]);
+    }
+}

@@ -21,6 +21,7 @@ rad.json
 #Test results file
 TestResults.xml
 target/
+**/target/
 
 crates/opentrace-bpf/src/bpf/vmlinux
 crates/opentrace-bpf/src/bpf/*.skel.rs
@@ -31,4 +32,9 @@ lcov.info
 docs/.vitepress/dist
 docs/.vitepress/cache
 docs/node_modules
+
+# Fuzz 测试
+**/fuzz/artifacts/
+**/fuzz/corpus/
+**/fuzz/coverage/
 

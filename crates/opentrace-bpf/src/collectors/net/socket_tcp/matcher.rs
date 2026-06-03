@@ -133,3 +133,120 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{EventMatcher, InnerEvent};
+    use crate::protocol::{MessageType, ParsedFrame, ProtoParser};
+    use crate::types::net::Addr;
+
+    #[derive(Default)]
+    struct TestParser;
+
+    struct TestFrame {
+        payload: Option<Box<str>>,
+        target: Option<Box<str>>,
+    }
+
+    impl ParsedFrame for TestFrame {
+        fn message_type(&self) -> MessageType {
+            MessageType::Request
+        }
+
+        fn payload(&mut self) -> Option<Box<str>> {
+            self.payload.take()
+        }
+
+        fn target(&mut self) -> Option<Box<str>> {
+            self.target.take()
+        }
+    }
+
+    impl ProtoParser for TestParser {
+        type Output = TestFrame;
+
+        fn parse(&self, data: &[u8], size: usize, _verbose: bool) -> Option<Self::Output> {
+            let payload = std::str::from_utf8(&data[..data.len().min(size)]).ok()?;
+            Some(TestFrame {
+                payload: Some(payload.into()),
+                target: Some("GET /".into()),
+            })
+        }
+
+        fn hash_id(&self, _data: &[u8], _size: usize) -> u32 {
+            0
+        }
+    }
+
+    fn inner_event(conn_kind: u32, flow_direct: u32, timestamp: u64, body: &str) -> InnerEvent {
+        let mut buffer = [0; 1024];
+        buffer[..body.len()].copy_from_slice(body.as_bytes());
+        InnerEvent {
+            buffer,
+            remote_addr: Addr {
+                v4addr: u32::from_ne_bytes([10, 0, 0, 1]),
+            },
+            local_addr: Addr {
+                v4addr: u32::from_ne_bytes([10, 0, 0, 2]),
+            },
+            timestamp,
+            size: body.len() as u32,
+            pid: 1,
+            fd: 2,
+            conn_kind,
+            flow_direct,
+            remote_port: 8080,
+            local_port: 80,
+            family: 2,
+            _pad: 0,
+        }
+    }
+
+    #[test]
+    fn active_connection_matches_egress_request_to_ingress_response() {
+        let mut matcher = EventMatcher::new(TestParser, false);
+
+        assert!(
+            matcher
+                .try_match(inner_event(1, 2, 10, "request"))
+                .is_none()
+        );
+        let event = matcher
+            .try_match(inner_event(1, 1, 25, "response"))
+            .unwrap();
+
+        assert_eq!(event.req_body.as_deref(), Some("request"));
+        assert_eq!(event.resp_body.as_deref(), Some("response"));
+        assert_eq!(event.duration, 15);
+        assert_eq!(event.response_size, 8);
+        assert_eq!(event.target.as_deref(), Some("GET /"));
+    }
+
+    #[test]
+    fn passive_connection_matches_ingress_request_to_egress_response() {
+        let mut matcher = EventMatcher::new(TestParser, false);
+
+        assert!(
+            matcher
+                .try_match(inner_event(2, 1, 10, "request"))
+                .is_none()
+        );
+        let event = matcher
+            .try_match(inner_event(2, 2, 20, "response"))
+            .unwrap();
+
+        assert_eq!(event.req_body.as_deref(), Some("request"));
+        assert_eq!(event.resp_body.as_deref(), Some("response"));
+    }
+
+    #[test]
+    fn unmatched_response_returns_none() {
+        let mut matcher = EventMatcher::new(TestParser, false);
+
+        assert!(
+            matcher
+                .try_match(inner_event(1, 1, 20, "response"))
+                .is_none()
+        );
+    }
+}

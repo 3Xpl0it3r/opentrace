@@ -214,3 +214,68 @@ impl fmt::Display for Stacknode {
         self.fmt_with_parent(f, self.account, 0, self.max_header_width(self.account, 0))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::borrow::Cow;
+
+    use super::{KSTACK_FLAGS, StacksStorage};
+    use crate::symbol::{ResolvedSymbol, Source, SymbolizeInput, Symbolizer};
+
+    struct OffsetSymbolizer;
+
+    impl Symbolizer for OffsetSymbolizer {
+        fn resolve(&self, input: SymbolizeInput) -> ResolvedSymbol<'_> {
+            let base = input.addr & !0xf;
+            let prefix = match input.source {
+                Source::Kernel => "k",
+                _ => "u",
+            };
+            ResolvedSymbol {
+                name: Cow::Owned(format!("{prefix}_{base:x}")),
+                start_addr: base,
+                offset: (input.addr - base) as usize,
+            }
+        }
+    }
+
+    #[test]
+    fn insert_accumulates_total_samples() {
+        let mut storage = StacksStorage::default();
+
+        storage.insert(vec![0x11, 0x22]);
+        storage.insert(vec![0x11, 0x33]);
+
+        let output = storage.to_string();
+        assert!(output.contains("total samples: 2"));
+        assert!(output.contains("L0_2_(100%)"));
+    }
+
+    #[test]
+    fn insert_switches_to_kernel_stack_after_separator() {
+        let mut storage = StacksStorage::default();
+
+        storage.insert(vec![0x10, KSTACK_FLAGS, 0x20]);
+
+        let output = storage
+            .merged(Source::CPid { pid: 1 }, &OffsetSymbolizer)
+            .to_string();
+        assert!(output.contains("[u] u_10"));
+        assert!(output.contains("[k] k_20"));
+    }
+
+    #[test]
+    fn merged_compacts_addresses_to_symbol_start() {
+        let mut storage = StacksStorage::default();
+
+        storage.insert(vec![0x11]);
+        storage.insert(vec![0x12]);
+
+        let output = storage
+            .merged(Source::CPid { pid: 1 }, &OffsetSymbolizer)
+            .to_string();
+        assert!(output.contains("total samples: 2"));
+        assert!(output.contains("L0_2_(100%)"));
+        assert!(output.contains("[u] u_10"));
+    }
+}

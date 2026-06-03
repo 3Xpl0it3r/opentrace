@@ -1,0 +1,14 @@
+# 这个文件覆盖 cargo 的默认行为
+[build]
+# 使用系统链接器而不是 lld
+rustflags = []
+
+[target.x86_64-unknown-linux-gnu]
+# 清空所有额外的链接参数
+rustflags = []
+
+[env]
+# 禁用 ASAN
+ASAN_OPTIONS = "detect_odr_violation=0:detect_leaks=0:verify_asan_link_order=0"
+# 不使用任何 sanitizer flags
+RUSTFLAGS = ""

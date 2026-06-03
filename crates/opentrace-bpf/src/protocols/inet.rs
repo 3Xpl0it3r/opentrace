@@ -84,3 +84,27 @@ pub fn parse(proto_name: &str) -> Result<u16, EbpfError> {
         _ => Err(EbpfError::Other(format!("UnSupport Proto: {}", proto_name))),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ICMP, TCP, UDP, parse, to_str};
+
+    #[test]
+    fn parses_supported_protocol_names_case_insensitively() {
+        assert_eq!(parse("tcp").unwrap(), TCP);
+        assert_eq!(parse("UDP").unwrap(), UDP);
+        assert_eq!(parse("Icmp").unwrap(), ICMP);
+    }
+
+    #[test]
+    fn rejects_unsupported_protocol_names() {
+        assert!(parse("sctp").is_err());
+    }
+
+    #[test]
+    fn renders_protocol_names() {
+        assert_eq!(to_str(TCP), "IPPROTO_TCP");
+        assert_eq!(to_str(UDP), "IPPROTO_UDP");
+        assert_eq!(to_str(999), "UNKNOWN");
+    }
+}

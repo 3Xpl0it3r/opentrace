@@ -110,6 +110,219 @@ fn parse_symbol_output(input: &str) -> Vec<(ResolvedSymbol<'static>, u64)> {
 mod tests {
     use super::*;
     use crate::symbolizers::{Source, SymbolizeInput, Symbolizer};
+    use rstest::rstest;
+
+    // ==================== symbol_contains 测试 ====================
+
+    #[test]
+    fn symbol_contains_at_exact_start_addr() {
+        let symbol = ResolvedSymbol {
+            name: Cow::Borrowed("func"),
+            start_addr: 0x1000,
+            offset: 0,
+        };
+        assert!(symbol_contains(&symbol, 0x100, 0x1000));
+    }
+
+    #[test]
+    fn symbol_contains_within_range() {
+        let symbol = ResolvedSymbol {
+            name: Cow::Borrowed("func"),
+            start_addr: 0x1000,
+            offset: 0,
+        };
+        assert!(symbol_contains(&symbol, 0x100, 0x1050));
+    }
+
+    #[test]
+    fn symbol_contains_at_end_boundary() {
+        let symbol = ResolvedSymbol {
+            name: Cow::Borrowed("func"),
+            start_addr: 0x1000,
+            offset: 0,
+        };
+        // addr == start_addr + size，应该是 false（不包含上界）
+        assert!(!symbol_contains(&symbol, 0x100, 0x1100));
+    }
+
+    #[test]
+    fn symbol_contains_before_start() {
+        let symbol = ResolvedSymbol {
+            name: Cow::Borrowed("func"),
+            start_addr: 0x1000,
+            offset: 0,
+        };
+        assert!(!symbol_contains(&symbol, 0x100, 0x0FFF));
+    }
+
+    #[test]
+    fn symbol_contains_after_end() {
+        let symbol = ResolvedSymbol {
+            name: Cow::Borrowed("func"),
+            start_addr: 0x1000,
+            offset: 0,
+        };
+        assert!(!symbol_contains(&symbol, 0x100, 0x1200));
+    }
+
+    #[test]
+    fn symbol_contains_zero_size() {
+        let symbol = ResolvedSymbol {
+            name: Cow::Borrowed("func"),
+            start_addr: 0x1000,
+            offset: 0,
+        };
+        // size == 0 时，只有 addr == start_addr 才返回 true
+        assert!(symbol_contains(&symbol, 0, 0x1000));
+        assert!(!symbol_contains(&symbol, 0, 0x1001));
+    }
+
+    // ==================== resolve_symbol 测试 ====================
+
+    #[test]
+    fn resolve_symbol_calculates_offset() {
+        let symbol = ResolvedSymbol {
+            name: Cow::Borrowed("func"),
+            start_addr: 0x1000,
+            offset: 0,
+        };
+        let resolved = resolve_symbol(&symbol, 0x1050);
+        assert_eq!(resolved.name.as_ref(), "func");
+        assert_eq!(resolved.start_addr, 0x1000);
+        assert_eq!(resolved.offset, 0x50);
+    }
+
+    #[test]
+    fn resolve_symbol_at_start_addr() {
+        let symbol = ResolvedSymbol {
+            name: Cow::Borrowed("func"),
+            start_addr: 0x1000,
+            offset: 0,
+        };
+        let resolved = resolve_symbol(&symbol, 0x1000);
+        assert_eq!(resolved.offset, 0);
+    }
+
+    #[test]
+    fn resolve_symbol_preserves_name() {
+        let symbol = ResolvedSymbol {
+            name: Cow::Owned("my_function".to_string()),
+            start_addr: 0x1000,
+            offset: 0,
+        };
+        let resolved = resolve_symbol(&symbol, 0x1010);
+        assert_eq!(resolved.name.as_ref(), "my_function");
+    }
+
+    // ==================== is_skippable_line 测试 ====================
+
+    #[test]
+    fn is_skippable_line_empty() {
+        assert!(is_skippable_line(""));
+    }
+
+    #[test]
+    fn is_skippable_line_comment() {
+        assert!(is_skippable_line("# this is a comment"));
+        assert!(is_skippable_line("#"));
+    }
+
+    #[test]
+    fn is_skippable_line_attaching() {
+        assert!(is_skippable_line("Attaching to JVM"));
+    }
+
+    #[test]
+    fn is_skippable_line_starting() {
+        assert!(is_skippable_line("Starting dump"));
+    }
+
+    #[test]
+    fn is_skippable_line_done() {
+        assert!(is_skippable_line("Done"));
+    }
+
+    #[test]
+    fn is_skippable_line_normal_symbol() {
+        assert!(!is_skippable_line("1000 20 myFunc"));
+    }
+
+    #[test]
+    fn is_skippable_line_partial_prefix_match() {
+        // "Atta" 不是以 SKIP_PREFIXES 开头
+        assert!(!is_skippable_line("Atta"));
+    }
+
+    // ==================== parse_symbol_line 测试 ====================
+
+    #[test]
+    fn parse_symbol_line_valid() {
+        let result = parse_symbol_line("1a2b3c 100 myFunction").unwrap();
+        assert_eq!(result.0.name.as_ref(), "myFunction");
+        assert_eq!(result.0.start_addr, 0x1a2b3c);
+        assert_eq!(result.1, 0x100);
+    }
+
+    #[test]
+    fn parse_symbol_line_with_spaces_in_name() {
+        let result = parse_symbol_line("1000 20 my function name").unwrap();
+        assert_eq!(result.0.name.as_ref(), "my function name");
+    }
+
+    #[test]
+    fn parse_symbol_line_uppercase_hex() {
+        let result = parse_symbol_line("ABCDEF 10 test").unwrap();
+        assert_eq!(result.0.start_addr, 0xabcdef);
+    }
+
+    #[test]
+    fn parse_symbol_line_too_few_parts() {
+        assert!(parse_symbol_line("1000 20").is_none());
+    }
+
+    #[test]
+    fn parse_symbol_line_too_many_parts_only_two() {
+        assert!(parse_symbol_line("1000").is_none());
+    }
+
+    #[test]
+    fn parse_symbol_line_invalid_hex() {
+        assert!(parse_symbol_line("not_hex 10 name").is_none());
+    }
+
+    #[test]
+    fn parse_symbol_line_invalid_size() {
+        assert!(parse_symbol_line("1000 not_size name").is_none());
+    }
+
+    #[test]
+    fn parse_symbol_line_empty() {
+        assert!(parse_symbol_line("").is_none());
+    }
+
+    // ==================== parse_symbol_output 批量测试 ====================
+
+    #[test]
+    fn parse_symbol_output_all_skippable_lines() {
+        let output = "# comment\nAttaching\nStarting\nDone\n";
+        assert!(parse_symbol_output(output).is_empty());
+    }
+
+    #[test]
+    fn parse_symbol_output_mixed_content() {
+        let output = "# header\n1000 10 func1\n2000 20 func2\nDone\n";
+        let symbols = parse_symbol_output(output);
+        assert_eq!(symbols.len(), 2);
+        assert_eq!(symbols[0].0.name.as_ref(), "func1");
+        assert_eq!(symbols[1].0.name.as_ref(), "func2");
+    }
+
+    #[test]
+    fn parse_symbol_output_empty_input() {
+        assert!(parse_symbol_output("").is_empty());
+    }
+
+    // ==================== 原有测试 ====================
 
     #[test]
     fn resolve_symbol_inside_function_body_uses_previous_entry() {
@@ -164,5 +377,24 @@ mod tests {
 
         assert_eq!(resolved.start_addr, 0x0fff);
         assert_eq!(resolved.offset, 0);
+    }
+
+    #[test]
+    fn parses_symbol_output_while_skipping_status_lines() {
+        let symbols = parse_symbol_output(
+            "# comment\nAttaching to JVM\n1000 20 foo\nStarting dump\n2000 10 bar\nDone\n",
+        );
+
+        assert_eq!(symbols.len(), 2);
+        assert_eq!(symbols[0].0.name.as_ref(), "foo");
+        assert_eq!(symbols[0].1, 0x20);
+        assert_eq!(symbols[1].0.start_addr, 0x2000);
+    }
+
+    #[test]
+    fn rejects_invalid_symbol_lines() {
+        assert!(parse_symbol_line("not enough").is_none());
+        assert!(parse_symbol_line("zz 10 name").is_none());
+        assert!(parse_symbol_line("10 zz name").is_none());
     }
 }

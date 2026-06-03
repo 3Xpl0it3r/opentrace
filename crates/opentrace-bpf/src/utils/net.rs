@@ -3,9 +3,18 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr as _;
 
-use libc::{htonl, ntohl};
-
 use crate::EbpfError;
+
+// 纯 Rust 实现的字节序转换，替代 libc 函数
+#[inline]
+const fn htonl(u: u32) -> u32 {
+    u.to_be()
+}
+
+#[inline]
+const fn ntohl(u: u32) -> u32 {
+    u32::from_be(u)
+}
 
 #[inline]
 pub fn u32_to_ipaddr_v4(addr: u32) -> String {
@@ -40,7 +49,7 @@ pub fn ipaddr_to_u128(ip_str: &str) -> Result<[u32; 4], EbpfError> {
 
 #[allow(dead_code)]
 #[inline]
-pub(super) fn tcp_flags(flags: u16) -> String {
+pub fn tcp_flags(flags: u16) -> String {
     let flags = u16::from_be(flags);
     let mut result = Vec::new();
     if flags & 0x01 != 0 {
@@ -70,7 +79,34 @@ pub(super) fn tcp_flags(flags: u16) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::ipaddr_to_u128;
+    use rstest::rstest;
+
+    use super::{ipaddr_to_u128, tcp_flags, u32_to_ipaddr_v4, u128_to_ipaddr_v6};
+
+    #[test]
+    fn formats_network_order_ipv4() {
+        assert_eq!(
+            u32_to_ipaddr_v4(u32::from_ne_bytes([127, 0, 0, 1])),
+            "127.0.0.1"
+        );
+    }
+
+    #[test]
+    fn formats_ipv6_from_u128() {
+        assert_eq!(u128_to_ipaddr_v6(1), "::1");
+    }
+
+    #[test]
+    fn empty_filter_address_converts_to_zero_words() {
+        assert_eq!(ipaddr_to_u128("").unwrap(), [0; 4]);
+    }
+
+    #[test]
+    fn ipv4_filter_address_uses_first_word_only() {
+        let words = ipaddr_to_u128("127.0.0.1").unwrap();
+        assert_eq!(words[0].to_ne_bytes(), [127, 0, 0, 1]);
+        assert_eq!(&words[1..], &[0, 0, 0]);
+    }
 
     #[test]
     fn ipv6_conversion_preserves_network_order_octets() {
@@ -87,5 +123,34 @@ mod tests {
                 0x0b, 0x0c,
             ]
         );
+    }
+
+    #[test]
+    fn formats_tcp_flags() {
+        assert_eq!(tcp_flags(u16::to_be(0x12)), "SYN-ACK");
+        assert_eq!(tcp_flags(0), "NONE");
+    }
+
+    #[rstest]
+    #[case(u16::to_be(0x01), "FIN")]
+    #[case(u16::to_be(0x02), "SYN")]
+    #[case(u16::to_be(0x04), "RST")]
+    #[case(u16::to_be(0x08), "PSH")]
+    #[case(u16::to_be(0x10), "ACK")]
+    #[case(u16::to_be(0x20), "URG")]
+    #[case(u16::to_be(0x1f), "FIN-SYN-RST-PSH-ACK")]
+    #[case(u16::to_be(0x3f), "FIN-SYN-RST-PSH-ACK-URG")]
+    fn tcp_flags_individual_and_combined(#[case] input: u16, #[case] expected: &str) {
+        assert_eq!(tcp_flags(input), expected);
+    }
+
+    #[rstest]
+    #[case("not.an.ip")]
+    #[case("1.2.3.4.5")]
+    #[case("999.999.999.999")]
+    #[case("::g")]
+    #[case("fe80:")]
+    fn ipaddr_to_u128_rejects_invalid_inputs(#[case] input: &str) {
+        assert!(ipaddr_to_u128(input).is_err());
     }
 }

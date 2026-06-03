@@ -716,3 +716,539 @@ fn trim_ascii(mut data: &[u8]) -> &[u8] {
     }
     data
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocols::{MessageType, ParsedFrame, ProtoParser};
+    use rstest::rstest;
+
+    // ==================== parse_method 测试 ====================
+
+    #[rstest]
+    #[case(b"GET", Some(HttpMethod::Get))]
+    #[case(b"POST", Some(HttpMethod::Post))]
+    #[case(b"PUT", Some(HttpMethod::Put))]
+    #[case(b"DELETE", Some(HttpMethod::Delete))]
+    #[case(b"PATCH", Some(HttpMethod::Patch))]
+    #[case(b"HEAD", Some(HttpMethod::Head))]
+    #[case(b"OPTIONS", Some(HttpMethod::Options))]
+    #[case(b"CONNECT", Some(HttpMethod::Connect))]
+    #[case(b"TRACE", Some(HttpMethod::Trace))]
+    #[case(b"INVALID", None)]
+    #[case(b"get", None)]
+    #[case(b"", None)]
+    fn parse_method_handles_all_variants(
+        #[case] input: &[u8],
+        #[case] expected: Option<HttpMethod>,
+    ) {
+        assert_eq!(parse_method(input), expected);
+    }
+
+    // ==================== parse_status 测试 ====================
+
+    #[rstest]
+    #[case(b"200", Some(200))]
+    #[case(b"404", Some(404))]
+    #[case(b"500", Some(500))]
+    #[case(b"000", Some(0))]
+    #[case(b"999", Some(999))]
+    #[case(b"20", None)] // 长度不足
+    #[case(b"2000", None)] // 长度过长
+    #[case(b"abc", None)] // 非数字
+    #[case(b"20a", None)] // 混合字符
+    fn parse_status_validates_and_converts(#[case] input: &[u8], #[case] expected: Option<u16>) {
+        assert_eq!(parse_status(input), expected);
+    }
+
+    // ==================== find_crlf 测试 ====================
+
+    #[test]
+    fn find_crlf_at_start() {
+        assert_eq!(find_crlf(b"\r\nrest"), Some(0));
+    }
+
+    #[test]
+    fn find_crlf_in_middle() {
+        assert_eq!(find_crlf(b"line1\r\nline2"), Some(5));
+    }
+
+    #[test]
+    fn find_crlf_at_end() {
+        assert_eq!(find_crlf(b"line\r\n"), Some(4));
+    }
+
+    #[test]
+    fn find_crlf_not_found() {
+        assert_eq!(find_crlf(b"no crlf here"), None);
+    }
+
+    #[test]
+    fn find_crlf_empty() {
+        assert_eq!(find_crlf(b""), None);
+    }
+
+    #[test]
+    fn find_crlf_single_char() {
+        assert_eq!(find_crlf(b"\r"), None);
+    }
+
+    // ==================== find_byte 测试 ====================
+
+    #[test]
+    fn find_byte_at_start() {
+        assert_eq!(find_byte(b"abc", b'a'), Some(0));
+    }
+
+    #[test]
+    fn find_byte_in_middle() {
+        assert_eq!(find_byte(b"abc", b'b'), Some(1));
+    }
+
+    #[test]
+    fn find_byte_at_end() {
+        assert_eq!(find_byte(b"abc", b'c'), Some(2));
+    }
+
+    #[test]
+    fn find_byte_not_found() {
+        assert_eq!(find_byte(b"abc", b'd'), None);
+    }
+
+    #[test]
+    fn find_byte_empty() {
+        assert_eq!(find_byte(b"", b'a'), None);
+    }
+
+    // ==================== trim_ascii 测试 ====================
+
+    #[test]
+    fn trim_ascii_leading_whitespace() {
+        assert_eq!(trim_ascii(b"  hello"), b"hello");
+    }
+
+    #[test]
+    fn trim_ascii_trailing_whitespace() {
+        assert_eq!(trim_ascii(b"hello  "), b"hello");
+    }
+
+    #[test]
+    fn trim_ascii_both_sides() {
+        assert_eq!(trim_ascii(b"  hello  "), b"hello");
+    }
+
+    #[test]
+    fn trim_ascii_no_whitespace() {
+        assert_eq!(trim_ascii(b"hello"), b"hello");
+    }
+
+    #[test]
+    fn trim_ascii_only_whitespace() {
+        assert_eq!(trim_ascii(b"   "), b"");
+    }
+
+    #[test]
+    fn trim_ascii_empty() {
+        assert_eq!(trim_ascii(b""), b"");
+    }
+
+    #[test]
+    fn trim_ascii_tabs_and_newlines() {
+        assert_eq!(trim_ascii(b"\t\nhello\r\n"), b"hello");
+    }
+
+    // ==================== fnv1a32 测试 ====================
+
+    #[test]
+    fn fnv1a32_empty() {
+        // FNV-1a 初始值
+        assert_eq!(fnv1a32(b""), 0x811c_9dc5);
+    }
+
+    #[test]
+    fn fnv1a32_known_values() {
+        // 已知的 FNV-1a 哈希值
+        assert_eq!(fnv1a32(b"a"), 0xe40c292c);
+        assert_eq!(fnv1a32(b"foobar"), 0xbf9cf968);
+    }
+
+    #[test]
+    fn fnv1a32_deterministic() {
+        assert_eq!(fnv1a32(b"test"), fnv1a32(b"test"));
+    }
+
+    #[test]
+    fn fnv1a32_different_inputs_differ() {
+        assert_ne!(fnv1a32(b"a"), fnv1a32(b"b"));
+    }
+
+    // ==================== body_to_boxed_str 测试 ====================
+
+    #[test]
+    fn body_to_boxed_str_valid_utf8() {
+        assert_eq!(body_to_boxed_str(b"hello").as_deref(), Some("hello"));
+    }
+
+    #[test]
+    fn body_to_boxed_str_empty() {
+        assert_eq!(body_to_boxed_str(b""), None);
+    }
+
+    #[test]
+    fn body_to_boxed_str_invalid_utf8() {
+        assert_eq!(body_to_boxed_str(&[0xff, 0xfe]), None);
+    }
+
+    // ==================== decode_prefixed_int 测试 ====================
+
+    #[rstest]
+    #[case(&[0x00], 0x0f, Some((0, [].as_slice())))]
+    #[case(&[0x05], 0x0f, Some((5, [].as_slice())))]
+    #[case(&[0x0f, 0x00], 0x0f, Some((15, [].as_slice())))]
+    #[case(&[0x0f, 0x09], 0x0f, Some((24, [].as_slice())))]
+    #[case(&[0x0f, 0x80, 0x01], 0x0f, Some((143, [].as_slice())))]
+    fn decode_prefixed_int_basic(
+        #[case] data: &[u8],
+        #[case] mask: u8,
+        #[case] expected: Option<(usize, &[u8])>,
+    ) {
+        assert_eq!(decode_prefixed_int(data, mask), expected);
+    }
+
+    #[test]
+    fn decode_prefixed_int_empty() {
+        assert_eq!(decode_prefixed_int(&[], 0x0f), None);
+    }
+
+    // ==================== indexed_header 测试 ====================
+
+    #[rstest]
+    #[case(0, Some(("", "")))]
+    #[case(2, Some((":method", "GET")))]
+    #[case(3, Some((":method", "POST")))]
+    #[case(4, Some((":path", "/")))]
+    #[case(8, Some((":status", "200")))]
+    #[case(14, Some((":status", "500")))]
+    #[case(15, None)] // 超出范围
+    #[case(100, None)] // 超出范围
+    fn indexed_header_lookups(#[case] index: usize, #[case] expected: Option<(&str, &str)>) {
+        assert_eq!(indexed_header(index), expected);
+    }
+
+    // ==================== http1_hash_id 测试 ====================
+
+    #[test]
+    fn http1_hash_id_with_method_and_url() {
+        let hash = http1_hash_id(Some(HttpMethod::Get), Some("/hello"), None);
+        assert_ne!(hash, 0);
+    }
+
+    #[test]
+    fn http1_hash_id_deterministic() {
+        let h1 = http1_hash_id(Some(HttpMethod::Get), Some("/hello"), None);
+        let h2 = http1_hash_id(Some(HttpMethod::Get), Some("/hello"), None);
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn http1_hash_id_different_urls_differ() {
+        let h1 = http1_hash_id(Some(HttpMethod::Get), Some("/a"), None);
+        let h2 = http1_hash_id(Some(HttpMethod::Get), Some("/b"), None);
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn http1_hash_id_fallback_to_status() {
+        let hash = http1_hash_id(None, None, Some(200));
+        assert_eq!(hash, 200);
+    }
+
+    #[test]
+    fn http1_hash_id_returns_zero_when_no_info() {
+        assert_eq!(http1_hash_id(None, None, None), 0);
+    }
+
+    // ==================== validate_h2_* 函数测试 ====================
+
+    #[test]
+    fn validate_h2_settings_valid() {
+        // stream_id == 0, frame_len 是 6 的倍数
+        assert!(validate_h2_settings(0, 0, 6, 6));
+        assert!(validate_h2_settings(0, 0, 12, 12));
+    }
+
+    #[test]
+    fn validate_h2_settings_non_zero_stream() {
+        // stream_id 必须为 0
+        assert!(!validate_h2_settings(0, 1, 6, 6));
+    }
+
+    #[test]
+    fn validate_h2_settings_not_multiple_of_6() {
+        assert!(!validate_h2_settings(0, 0, 5, 5));
+    }
+
+    #[test]
+    fn validate_h2_settings_ack_flag_requires_empty() {
+        // ACK flag (0x1) 时 frame_len 必须为 0
+        assert!(validate_h2_settings(0x1, 0, 0, 0));
+        assert!(!validate_h2_settings(0x1, 0, 6, 6));
+    }
+
+    #[test]
+    fn validate_h2_ping_valid() {
+        assert!(validate_h2_ping(0, 8, 8));
+    }
+
+    #[test]
+    fn validate_h2_ping_non_zero_stream() {
+        assert!(!validate_h2_ping(1, 8, 8));
+    }
+
+    #[test]
+    fn validate_h2_ping_wrong_length() {
+        assert!(!validate_h2_ping(0, 4, 4));
+    }
+
+    #[test]
+    fn validate_h2_rst_stream_valid() {
+        assert!(validate_h2_rst_stream(1, 4, 4));
+    }
+
+    #[test]
+    fn validate_h2_rst_stream_zero_stream() {
+        assert!(!validate_h2_rst_stream(0, 4, 4));
+    }
+
+    #[test]
+    fn validate_h2_rst_stream_wrong_length() {
+        assert!(!validate_h2_rst_stream(1, 8, 8));
+    }
+
+    #[test]
+    fn validate_h2_priority_valid() {
+        assert!(validate_h2_priority(1, 5, 5));
+    }
+
+    #[test]
+    fn validate_h2_priority_wrong_length() {
+        assert!(!validate_h2_priority(1, 4, 4));
+    }
+
+    #[test]
+    fn validate_h2_window_update_valid() {
+        assert!(validate_h2_window_update(4, 4));
+    }
+
+    #[test]
+    fn validate_h2_window_update_wrong_length() {
+        assert!(!validate_h2_window_update(8, 8));
+    }
+
+    #[test]
+    fn validate_h2_goaway_valid() {
+        assert!(validate_h2_goaway(0, 8, 8));
+        assert!(validate_h2_goaway(0, 16, 16));
+    }
+
+    #[test]
+    fn validate_h2_goaway_non_zero_stream() {
+        assert!(!validate_h2_goaway(1, 8, 8));
+    }
+
+    #[test]
+    fn validate_h2_goaway_too_short() {
+        assert!(!validate_h2_goaway(0, 4, 4));
+    }
+
+    // ==================== http2_header_block 测试 ====================
+
+    #[test]
+    fn http2_header_block_no_padding() {
+        let payload = &[0x82, 0x84];
+        assert_eq!(
+            http2_header_block(payload, 0, HTTP2_FRAME_HEADERS),
+            Some(payload.as_slice())
+        );
+    }
+
+    #[test]
+    fn http2_header_block_with_padding() {
+        // padded flag, pad_len = 2
+        let payload = &[0x02, 0x82, 0x84, 0x00, 0x00];
+        let result = http2_header_block(payload, HTTP2_FLAG_PADDED, HTTP2_FRAME_HEADERS);
+        assert_eq!(result, Some(&[0x82, 0x84][..]));
+    }
+
+    #[test]
+    fn http2_header_block_with_priority() {
+        // priority flag, 5 bytes priority data
+        let payload = &[0x00, 0x00, 0x00, 0x00, 0x00, 0x82, 0x84];
+        let result = http2_header_block(payload, HTTP2_FLAG_PRIORITY, HTTP2_FRAME_HEADERS);
+        assert_eq!(result, Some(&[0x82, 0x84][..]));
+    }
+
+    // ==================== http2_data_payload 测试 ====================
+
+    #[test]
+    fn http2_data_payload_no_padding() {
+        let payload = b"hello";
+        assert_eq!(http2_data_payload(payload, 0).as_deref(), Some("hello"));
+    }
+
+    #[test]
+    fn http2_data_payload_with_padding() {
+        // pad_len = 2, data = "hi", padding = [0, 0]
+        let payload = &[0x02, b'h', b'i', 0x00, 0x00];
+        assert_eq!(
+            http2_data_payload(payload, HTTP2_FLAG_PADDED).as_deref(),
+            Some("hi")
+        );
+    }
+
+    #[test]
+    fn http2_data_payload_empty() {
+        assert_eq!(http2_data_payload(b"", 0), None);
+    }
+
+    // ==================== empty_map_to_none 测试 ====================
+
+    #[test]
+    fn empty_map_to_none_empty() {
+        let map: HashMap<Box<str>, Box<str>> = HashMap::new();
+        assert!(empty_map_to_none(map).is_none());
+    }
+
+    #[test]
+    fn empty_map_to_none_non_empty() {
+        let mut map = HashMap::<String, String>::new();
+        map.insert("key".into(), "value".into());
+        assert!(empty_map_to_none(map).is_some());
+    }
+
+    // ==================== trim_to_size 测试 ====================
+
+    #[test]
+    fn trim_to_size_smaller_than_data() {
+        assert_eq!(trim_to_size(b"hello", 3), b"hel");
+    }
+
+    #[test]
+    fn trim_to_size_larger_than_data() {
+        assert_eq!(trim_to_size(b"hello", 10), b"hello");
+    }
+
+    #[test]
+    fn trim_to_size_equal() {
+        assert_eq!(trim_to_size(b"hello", 5), b"hello");
+    }
+
+    // ==================== 原有测试 ====================
+
+    #[test]
+    fn parses_http1_request_minimal_fields() {
+        let parser = HttpParser::default();
+        let frame = parser
+            .parse(
+                b"GET /hello HTTP/1.1\r\nHost: example\r\n\r\nbody",
+                64,
+                false,
+            )
+            .unwrap();
+
+        assert_eq!(frame.message_type, MessageType::Request);
+        assert_eq!(frame.version, HttpVersion::Http11);
+        assert_eq!(frame.method, Some(HttpMethod::Get));
+        assert_eq!(frame.url.as_deref(), Some("/hello"));
+        assert!(frame.headers.is_none());
+        assert!(frame.body.is_none());
+    }
+
+    #[test]
+    fn parses_http1_request_headers_and_body_when_verbose() {
+        let parser = HttpParser::default();
+        let frame = parser
+            .parse(
+                b"POST /submit HTTP/1.1\r\nHost: example\r\n\r\npayload",
+                128,
+                true,
+            )
+            .unwrap();
+
+        assert_eq!(frame.method, Some(HttpMethod::Post));
+        assert_eq!(
+            frame.headers.as_ref().unwrap().get("Host").map(Box::as_ref),
+            Some("example")
+        );
+        assert_eq!(frame.body.as_deref(), Some("payload"));
+    }
+
+    #[test]
+    fn parses_http1_response_status() {
+        let parser = HttpParser::default();
+        let frame = parser.parse(b"HTTP/1.1 200 OK\r\n\r\n", 32, false).unwrap();
+
+        assert_eq!(frame.message_type, MessageType::Response);
+        assert_eq!(frame.status, Some(200));
+    }
+
+    #[test]
+    fn target_consumes_method_and_url() {
+        let mut frame = HttpFrame {
+            message_type: MessageType::Request,
+            version: HttpVersion::Http11,
+            stream_id: 0,
+            method: Some(HttpMethod::Get),
+            url: Some("/x".into()),
+            status: None,
+            headers: None,
+            body: Some("body".into()),
+        };
+
+        assert_eq!(frame.target().as_deref(), Some("GET /x"));
+        assert_eq!(frame.payload().as_deref(), Some("body"));
+        assert!(frame.payload().is_none());
+    }
+
+    #[test]
+    fn parses_http2_preface_settings_frame() {
+        let mut data = Vec::from(HTTP2_PREFACE.as_slice());
+        data.extend_from_slice(&[0, 0, 0, HTTP2_FRAME_SETTINGS, 0, 0, 0, 0, 0]);
+
+        let parser = HttpParser::default();
+        let frame = parser.parse(&data, data.len(), false).unwrap();
+
+        assert_eq!(frame.version, HttpVersion::Http2);
+        assert_eq!(frame.stream_id, 0);
+        assert_eq!(frame.message_type, MessageType::Unknown);
+    }
+
+    #[test]
+    fn parses_simple_http2_indexed_headers() {
+        let data = [0, 0, 2, HTTP2_FRAME_HEADERS, 0, 0, 0, 0, 1, 0x82, 0x84];
+
+        let parser = HttpParser::default();
+        let frame = parser.parse(&data, data.len(), false).unwrap();
+
+        assert_eq!(frame.message_type, MessageType::Request);
+        assert_eq!(frame.method, Some(HttpMethod::Get));
+        assert_eq!(frame.url.as_deref(), Some("/"));
+    }
+
+    #[test]
+    fn hash_id_is_stable_for_same_http1_target() {
+        let parser = HttpParser::default();
+        let left = parser.hash_id(b"GET /hello HTTP/1.1\r\n\r\n", 24);
+        let right = parser.hash_id(b"GET /hello HTTP/1.1\r\nHost: x\r\n\r\n", 128);
+
+        assert_ne!(left, 0);
+        assert_eq!(left, right);
+    }
+
+    #[test]
+    fn rejects_invalid_http_payload() {
+        let parser = HttpParser::default();
+        assert!(parser.parse(b"not http", 8, false).is_none());
+        assert_eq!(parser.hash_id(b"not http", 8), 0);
+    }
+}

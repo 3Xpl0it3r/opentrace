@@ -35,3 +35,27 @@ impl<'de> Deserialize<'de> for ProcessInfo {
         todo!()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProcessInfo;
+
+    #[test]
+    fn serializes_process_info_with_c_string_comm() {
+        let process = ProcessInfo {
+            pid: 11,
+            tgid: 22,
+            comm: {
+                let mut comm = [0; 16];
+                comm[..4].copy_from_slice(b"bash");
+                comm
+            },
+        };
+
+        let value = serde_json::to_value(process).unwrap();
+
+        assert_eq!(value["pid"], 11);
+        assert_eq!(value["tgid"], 22);
+        assert_eq!(value["comm"], "bash");
+    }
+}

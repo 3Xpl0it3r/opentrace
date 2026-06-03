@@ -61,3 +61,54 @@ impl Config {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    #[test]
+    fn converts_config_to_inner_config() {
+        let inner = Config {
+            any_addr: "127.0.0.1".into(),
+            src_addr: "".into(),
+            dst_addr: "2001:db8::1".into(),
+            pid: 1,
+            netns: 2,
+            eth_proto: 3,
+            ip_proto: 4,
+            any_port: 5,
+            src_port: 6,
+            dst_port: 7,
+            custom_btf_path: Some("btf".into()),
+        }
+        .into_inner()
+        .unwrap();
+
+        assert_eq!(inner.any_addr[0].to_ne_bytes(), [127, 0, 0, 1]);
+        assert_eq!(inner.src_addr, [0; 4]);
+        assert_eq!(inner.pid, 1);
+        assert_eq!(inner.netns, 2);
+        assert_eq!(inner.eth_proto, 3);
+        assert_eq!(inner.ip_proto, 4);
+        assert_eq!(inner.any_port, 5);
+        assert_eq!(inner.src_port, 6);
+        assert_eq!(inner.dst_port, 7);
+    }
+
+    #[test]
+    fn rejects_invalid_ip_address() {
+        let config = Config {
+            any_addr: "not-an-ip".into(),
+            ..Default::default()
+        };
+
+        assert!(config.into_inner().is_err());
+    }
+
+    #[test]
+    fn exposes_inner_config_as_bytes() {
+        let inner = Config::default().into_inner().unwrap();
+
+        assert_eq!(inner.as_bytes().len(), std::mem::size_of_val(&inner));
+    }
+}

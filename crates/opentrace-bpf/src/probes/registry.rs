@@ -44,7 +44,12 @@ impl Registry {
 
 #[inline]
 fn read_kprobes() -> Result<HashMap<String, bool>, EbpfError> {
-    let file = File::open(AVAILABLE_FILTER_FUNCTIONS).map_err(EbpfError::IO)?;
+    read_kprobes_from(AVAILABLE_FILTER_FUNCTIONS)
+}
+
+#[inline]
+fn read_kprobes_from(path: &str) -> Result<HashMap<String, bool>, EbpfError> {
+    let file = File::open(path).map_err(EbpfError::IO)?;
     let reader = BufReader::new(file);
     reader
         .lines()
@@ -60,7 +65,12 @@ fn read_kprobes() -> Result<HashMap<String, bool>, EbpfError> {
 
 #[inline]
 fn read_tracepoints() -> Result<HashMap<String, bool>, EbpfError> {
-    let file = File::open(AVAILABLE_EVENTS).map_err(EbpfError::IO)?;
+    read_tracepoints_from(AVAILABLE_EVENTS)
+}
+
+#[inline]
+fn read_tracepoints_from(path: &str) -> Result<HashMap<String, bool>, EbpfError> {
+    let file = File::open(path).map_err(EbpfError::IO)?;
     let reader = BufReader::new(file);
     reader
         .lines()
@@ -73,4 +83,46 @@ fn read_tracepoints() -> Result<HashMap<String, bool>, EbpfError> {
             }
             Ok(trace_map)
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Registry, read_kprobes_from, read_tracepoints_from};
+
+    const DATA_DIR: &str = "tests/data";
+
+    #[test]
+    fn reads_available_filter_functions_fixture() {
+        let path = format!("{DATA_DIR}/available_filter_functions");
+        let kprobes = read_kprobes_from(&path).unwrap();
+
+        assert!(kprobes.contains_key("do_one_initcall"));
+        assert!(kprobes.contains_key("x86_pmu_enable_event"));
+        assert!(!kprobes.contains_key(""));
+    }
+
+    #[test]
+    fn reads_available_events_fixture() {
+        let path = format!("{DATA_DIR}/available_events");
+        let tracepoints = read_tracepoints_from(&path).unwrap();
+
+        assert!(tracepoints.contains_key("syscalls:sys_enter_arch_prctl"));
+        assert!(tracepoints.contains_key("irq_vectors:spurious_apic_exit"));
+        assert!(!tracepoints.contains_key("malformed_tracepoint_without_group"));
+    }
+
+    #[test]
+    fn registry_checks_loaded_probe_availability() {
+        let kprobes = read_kprobes_from(&format!("{DATA_DIR}/available_filter_functions")).unwrap();
+        let tracepoints = read_tracepoints_from(&format!("{DATA_DIR}/available_events")).unwrap();
+        let registry = Registry {
+            kprobes,
+            tracepoints,
+        };
+
+        assert!(registry.kprobe_is_available("do_one_initcall"));
+        assert!(!registry.kprobe_is_available("definitely_missing_probe"));
+        assert!(registry.tracepoint_is_available("syscalls:sys_enter_arch_prctl"));
+        assert!(!registry.tracepoint_is_available("missing:tracepoint"));
+    }
 }

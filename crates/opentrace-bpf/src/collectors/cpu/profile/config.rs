@@ -16,3 +16,38 @@ pub struct Config {
 
     pub custom_btf_path: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_config_has_zero_pid() {
+        let config = Config::default();
+        assert_eq!(config.pid, 0);
+    }
+
+    #[test]
+    fn default_config_has_no_tids() {
+        let config = Config::default();
+        assert!(config.tids.is_none());
+    }
+
+    #[test]
+    fn default_config_has_zero_cpu() {
+        let config = Config::default();
+        assert_eq!(config.cpu, 0);
+    }
+
+    #[test]
+    fn default_config_has_zero_group_id() {
+        let config = Config::default();
+        assert_eq!(config.group_id, 0);
+    }
+
+    #[test]
+    fn default_config_has_no_custom_btf_path() {
+        let config = Config::default();
+        assert!(config.custom_btf_path.is_none());
+    }
+}

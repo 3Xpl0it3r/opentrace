@@ -44,3 +44,13 @@ impl BalzeSymbolizer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::BalzeSymbolizer;
+
+    #[test]
+    fn constructs_symbolizer() {
+        let _symbolizer = BalzeSymbolizer::new();
+    }
+}

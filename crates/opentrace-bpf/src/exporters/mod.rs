@@ -1,6 +1,6 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
-mod stdout;
+mod stream_writer;
 mod channel;
 pub(crate) mod helper;
 
@@ -18,4 +18,23 @@ pub trait Exporter<T> {
 
 pub use channel::SimpleBoundChannelExpoter;
 pub use channel::SimpleUnboundChannelExporter;
-pub use stdout::DefaultStdoutExporter;
+pub use stream_writer::StreamWriterExpoter;
+
+#[cfg(test)]
+mod tests {
+    use super::Exporter;
+
+    struct TestExporter;
+
+    impl Exporter<u32> for TestExporter {
+        fn dispatch(&mut self, _event: u32) {}
+    }
+
+    #[test]
+    fn default_load_reads_plain_old_data() {
+        let exporter = TestExporter;
+        let bytes = 7_u32.to_ne_bytes();
+
+        assert_eq!(exporter.load(&bytes), 7);
+    }
+}

@@ -45,3 +45,79 @@ impl From<EbpfError> for String {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn io_error_display() {
+        let err = EbpfError::IO(std::io::Error::new(std::io::ErrorKind::NotFound, "file not found"));
+        assert_eq!(err.to_string(), "IO Error: file not found");
+    }
+
+    #[test]
+    fn parse_error_display() {
+        let err: EbpfError = "invalid address".parse::<std::net::Ipv4Addr>().unwrap_err().into();
+        assert!(err.to_string().contains("addr_parse Error"));
+    }
+
+    #[test]
+    fn probe_not_found_display() {
+        let err = EbpfError::ProbeNotFound("kprobe_missing".to_string());
+        assert_eq!(err.to_string(), "probes is not found Error: kprobe_missing");
+    }
+
+    #[test]
+    fn syscall_error_display() {
+        let err = EbpfError::SyscallErr("permission denied".to_string());
+        assert_eq!(err.to_string(), "Syscall Error: permission denied");
+    }
+
+    #[test]
+    fn symbolize_error_display() {
+        let err = EbpfError::SymbolizeError("symbol not found".to_string());
+        assert_eq!(err.to_string(), "Symbolize Error: symbol not found");
+    }
+
+    #[test]
+    fn other_error_display() {
+        let err = EbpfError::Other("something went wrong".to_string());
+        assert_eq!(err.to_string(), "Other Error: something went wrong");
+    }
+
+    #[test]
+    fn io_error_from() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "test");
+        let err: EbpfError = io_err.into();
+        assert!(matches!(err, EbpfError::IO(_)));
+    }
+
+    #[test]
+    fn probe_not_found_to_string() {
+        let err = EbpfError::ProbeNotFound("test_probe".to_string());
+        let s: String = err.into();
+        assert_eq!(s, "test_probe");
+    }
+
+    #[test]
+    fn syscall_error_to_string() {
+        let err = EbpfError::SyscallErr("syscall failed".to_string());
+        let s: String = err.into();
+        assert_eq!(s, "syscall failed");
+    }
+
+    #[test]
+    fn symbolize_error_to_string() {
+        let err = EbpfError::SymbolizeError("symbol error".to_string());
+        let s: String = err.into();
+        assert_eq!(s, "symbol error");
+    }
+
+    #[test]
+    fn other_error_to_string() {
+        let err = EbpfError::Other("other error".to_string());
+        let s: String = err.into();
+        assert_eq!(s, "other error");
+    }
+}

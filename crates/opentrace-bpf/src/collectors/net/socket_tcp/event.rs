@@ -49,3 +49,44 @@ pub(super) struct InnerEvent {
     pub(super) family: u16,
     pub(super) _pad: u16,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Event, InnerEvent};
+    use crate::types::net::Addr;
+
+    fn inner_event() -> InnerEvent {
+        InnerEvent {
+            buffer: [0; 1024],
+            remote_addr: Addr {
+                v4addr: u32::from_ne_bytes([10, 0, 0, 1]),
+            },
+            local_addr: Addr {
+                v4addr: u32::from_ne_bytes([10, 0, 0, 2]),
+            },
+            timestamp: 123,
+            size: 456,
+            pid: 1,
+            fd: 2,
+            conn_kind: 1,
+            flow_direct: 2,
+            remote_port: 8080,
+            local_port: 80,
+            family: 2,
+            _pad: 0,
+        }
+    }
+
+    #[test]
+    fn converts_inner_event_to_public_request_event() {
+        let event = Event::from(inner_event());
+
+        assert_eq!(event.remote_port, 8080);
+        assert_eq!(event.family, 2);
+        assert_eq!(event.timestamp, 123);
+        assert_eq!(event.request_size, 456);
+        assert_eq!(event.response_size, 0);
+        assert!(event.req_body.is_none());
+        assert!(event.resp_body.is_none());
+    }
+}

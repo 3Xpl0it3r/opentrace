@@ -1,0 +1,97 @@
+[package]
+name = "opentrace-bpf-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+serde_json = { workspace = true }
+
+[dependencies.opentrace-bpf]
+path = ".."
+
+[[bin]]
+name = "fuzz_http_parser"
+path = "fuzz_targets/fuzz_http_parser.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_http1_request"
+path = "fuzz_targets/fuzz_http1_request.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_http2_frame"
+path = "fuzz_targets/fuzz_http2_frame.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_hpack_decode"
+path = "fuzz_targets/fuzz_hpack_decode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_protocol_parse"
+path = "fuzz_targets/fuzz_protocol_parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_types_serialize"
+path = "fuzz_targets/fuzz_types_serialize.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_utils_net"
+path = "fuzz_targets/fuzz_utils_net.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_utils_cstring"
+path = "fuzz_targets/fuzz_utils_cstring.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_utils_display"
+path = "fuzz_targets/fuzz_utils_display.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_types_process"
+path = "fuzz_targets/fuzz_types_process.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_http_parse_detailed"
+path = "fuzz_targets/fuzz_http_parse_detailed.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_types_and_protocols"
+path = "fuzz_targets/fuzz_types_and_protocols.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_utils_all"
+path = "fuzz_targets/fuzz_utils_all.rs"
+test = false
+doc = false
+
+[profile.release]
+codegen-units = 1
+debug = 1

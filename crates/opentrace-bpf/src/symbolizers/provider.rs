@@ -35,3 +35,16 @@ impl SymbolizerProvider<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SymbolizerProvider;
+    use crate::symbolizers::Source;
+
+    #[test]
+    fn default_provider_returns_symbolizer_for_non_java_sources() {
+        let provider = SymbolizerProvider::default();
+
+        let _symbolizer = provider.get_symbolizer(&Source::Kernel);
+    }
+}
