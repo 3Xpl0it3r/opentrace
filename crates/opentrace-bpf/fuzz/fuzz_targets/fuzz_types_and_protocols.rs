@@ -1,8 +1,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
+use opentrace_bpf::protocols::{eth_proto, ip_proto};
 use opentrace_bpf::types::net::{Addr, AddrV4, AddrV6, L2Info, L3Info, L4Info};
-use opentrace_bpf::protocol::{eth_proto, ip_proto};
 
 fuzz_target!(|data: &[u8]| {
     // 1. 测试 AddrV4 Display

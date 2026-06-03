@@ -105,7 +105,7 @@ pub mod trace {
 pub mod perf {
     use clap::Args;
     use clap::ValueEnum;
-    use opentrace_bpf::collector::cpu::ProfileConfig;
+    use opentrace_bpf::collectors::cpu::ProfileConfig;
 
     use super::CliOptsCtx;
 
@@ -160,7 +160,7 @@ pub mod perf {
 
 pub mod watch {
     use clap::Args;
-    use opentrace_bpf::collector::net::SocketTcpConfig;
+    use opentrace_bpf::collectors::net::SocketTcpConfig;
 
     use super::CliOptsCtx;
 

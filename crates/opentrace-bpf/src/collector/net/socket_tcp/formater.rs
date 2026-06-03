@@ -2,7 +2,7 @@
 // DefaultFormatter[#TODO] (shoule add some comments )
 
 use crate::format::StreamFormatter;
-use crate::protocols::ip_proto::family;
+use crate::protocol::ip_proto::family;
 use crate::types::net::{Addr, AddrV4, AddrV6};
 use crate::utils::units::{bytes, time};
 

@@ -5,9 +5,6 @@
 //! 测试环境检测函数
 
 use opentrace_bpf::env;
-use std::fs;
-use std::path::Path;
-use tempfile::NamedTempFile;
 
 // ==================== default_custom_btf_path 测试 ====================
 

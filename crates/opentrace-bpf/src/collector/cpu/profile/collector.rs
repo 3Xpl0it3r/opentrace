@@ -8,9 +8,9 @@ use libbpf_rs::{Link, OpenObject, PerfBuffer, PerfBufferBuilder};
 
 use crate::EbpfError;
 use crate::bpf::perf_profile::{self, PerfProfileSkelBuilder};
-use crate::collectors::Collector as CollectorTrait;
-use crate::collectors::macros::attach_perf_event;
-use crate::exporters::Exporter;
+use crate::collector::Collector as CollectorTrait;
+use crate::collector::macros::attach_perf_event;
+use crate::exporter::Exporter;
 use crate::skeleton::with_custom_btf_open_opts;
 use crate::utils::procfs;
 use crate::utils::syscall::PerfEventFdBuilder;

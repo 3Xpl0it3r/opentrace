@@ -34,7 +34,7 @@ mod tests {
     use std::io;
 
     use super::StreamWriterExpoter;
-    use crate::exporters::Exporter;
+    use crate::exporter::Exporter;
     use crate::formatter::StreamFormatter;
 
     #[derive(Default)]

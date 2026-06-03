@@ -25,7 +25,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{load_and_dispatch, load_and_dispath_with};
-    use crate::exporters::Exporter;
+    use crate::exporter::Exporter;
 
     #[derive(Default)]
     struct VecExporter<T> {

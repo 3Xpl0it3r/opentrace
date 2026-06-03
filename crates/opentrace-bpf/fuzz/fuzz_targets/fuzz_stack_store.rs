@@ -3,8 +3,8 @@
 use std::borrow::Cow;
 
 use libfuzzer_sys::fuzz_target;
-use opentrace_bpf::collector::cpu::ProfileStackStorage;
-use opentrace_bpf::symbol::{ResolvedSymbol, Source, SymbolizeInput, Symbolizer};
+use opentrace_bpf::collectors::cpu::ProfileStackStorage;
+use opentrace_bpf::symbolizers::{ResolvedSymbol, Source, SymbolizeInput, Symbolizer};
 
 /// 简单的 fuzzing 用 Symbolizer，不做真实符号解析。
 struct FuzzSymbolizer;

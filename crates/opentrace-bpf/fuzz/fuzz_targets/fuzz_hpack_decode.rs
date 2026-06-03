@@ -1,8 +1,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use opentrace_bpf::protocol::ProtoParser;
-use opentrace_bpf::protocol::appproto::HttpParser;
+use opentrace_bpf::protocols::ProtoParser;
+use opentrace_bpf::protocols::app_protos::HttpParser;
 
 /// 构造一个 HPACK 编码的 HEADERS 帧
 fn make_hpack_headers_frame(data: &[u8]) -> Vec<u8> {

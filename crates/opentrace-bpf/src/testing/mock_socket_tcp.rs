@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use crate::EbpfError;
 use crate::collector::Collector;
-use crate::collector::net::SocketTcpEvent;
+use crate::collectors::net::SocketTcpEvent;
 use crate::types::net::Addr;
 
 /// Mock SocketTcpCollector，用于测试
@@ -16,7 +16,7 @@ use crate::types::net::Addr;
 ///
 /// ```rust
 /// use opentrace_bpf::testing::MockSocketTcpCollector;
-/// use opentrace_bpf::collector::Collector;
+/// use opentrace_bpf::collectors::Collector;
 /// use std::time::Duration;
 ///
 /// let mut collector = MockSocketTcpCollector::new();

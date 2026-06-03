@@ -1,5 +1,5 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use opentrace_bpf::exporter::{
+use opentrace_bpf::exporters::{
     Exporter as _, SimpleBoundChannelExpoter, SimpleUnboundChannelExporter, StreamWriterExpoter,
 };
 use opentrace_bpf::format::StreamFormatter;

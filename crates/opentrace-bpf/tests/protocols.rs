@@ -4,9 +4,9 @@
 //!
 //! 测试公开的协议解析 API
 
-use opentrace_bpf::protocol::{
+use opentrace_bpf::protocols::{
     MessageType, ParsedFrame, ProtoParser,
-    appproto::{HttpDirection, HttpFrame, HttpMethod, HttpParser},
+    app_protos::{HttpMethod, HttpParser},
     eth_proto, ip_proto,
 };
 use rstest::rstest;

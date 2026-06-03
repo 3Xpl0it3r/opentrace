@@ -3,10 +3,10 @@
 use std::time::Duration;
 
 use opentrace_bpf::ProbeRegistry;
-use opentrace_bpf::collector::Collector;
-use opentrace_bpf::collector::net::{SkbdropCollector, SkbdropEventDefaultFormatter};
-use opentrace_bpf::exporter::DefaultStdoutExporter;
-use opentrace_bpf::symbol::{self, Source};
+use opentrace_bpf::collectors::Collector;
+use opentrace_bpf::collectors::net::{SkbdropCollector, SkbdropEventDefaultFormatter};
+use opentrace_bpf::exporters::StreamWriterExpoter;
+use opentrace_bpf::symbolizers::{self, Source};
 
 use crate::errors::CliError;
 use crate::options::CliOptsCtx;
@@ -33,14 +33,17 @@ fn run_as_skbdrop(
     registry: &mut ProbeRegistry,
     object: &mut opentrace_bpf::CollectorObject,
 ) -> Result<(), CliError> {
-    let symbolizer_provider = symbol::SymbolizerProvider::default();
+    let symbolizer_provider = symbolizers::SymbolizerProvider::default();
     let symbolizer = symbolizer_provider.get_symbolizer(&Source::Kernel);
 
     let mut collector = SkbdropCollector::new(
         object,
         registry,
         options.to_config(ctx).into(),
-        DefaultStdoutExporter::new(SkbdropEventDefaultFormatter::new(symbolizer)),
+        StreamWriterExpoter::new(
+            std::io::stdout(),
+            SkbdropEventDefaultFormatter::new(symbolizer),
+        ),
     )?;
 
     collector.attach_probe()?;

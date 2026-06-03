@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use crate::EbpfError;
 use crate::collector::Collector;
-use crate::collector::cpu::ProfileEvent;
+use crate::collectors::cpu::ProfileEvent;
 
 /// Mock ProfileCollector，用于测试
 ///
@@ -15,7 +15,7 @@ use crate::collector::cpu::ProfileEvent;
 ///
 /// ```rust
 /// use opentrace_bpf::testing::MockProfileCollector;
-/// use opentrace_bpf::collector::Collector;
+/// use opentrace_bpf::collectors::Collector;
 /// use std::time::Duration;
 ///
 /// let mut collector = MockProfileCollector::new();

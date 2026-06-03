@@ -5,7 +5,7 @@ use std::fmt;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 
-use crate::protocols::{eth_proto, ip_proto};
+use crate::protocol::{eth_proto, ip_proto};
 
 #[derive(Clone, Copy)]
 #[repr(C)]

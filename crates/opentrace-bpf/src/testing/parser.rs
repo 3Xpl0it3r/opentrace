@@ -62,7 +62,7 @@ impl ParsedFrame for MockFrame {
 ///
 /// ```rust
 /// use opentrace_bpf::testing::{MockProtoParser, MockFrame};
-/// use opentrace_bpf::protocol::{ProtoParser, ParsedFrame, MessageType};
+/// use opentrace_bpf::protocols::{ProtoParser, ParsedFrame, MessageType};
 ///
 /// let parser = MockProtoParser::new()
 ///     .with_frame(MockFrame::request("GET", "/hello"));
@@ -130,29 +130,29 @@ impl ProtoParser for MockProtoParser {
     }
 }
 
-/// 创建一个总是返回固定帧的 parser
-pub fn parser_with_frame(frame: MockFrame) -> MockProtoParser {
-    MockProtoParser::new().with_frame(frame)
-}
-
-/// 创建一个总是返回 None 的 parser
-pub fn null_parser() -> MockProtoParser {
-    MockProtoParser::new().with_none()
-}
-
-/// 创建一个返回请求帧的 parser
-pub fn request_parser(method: &str, url: &str) -> MockProtoParser {
-    parser_with_frame(MockFrame::request(method, url))
-}
-
-/// 创建一个返回响应帧的 parser
-pub fn response_parser(status: u16) -> MockProtoParser {
-    parser_with_frame(MockFrame::response(status))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 创建一个总是返回固定帧的 parser
+    pub fn parser_with_frame(frame: MockFrame) -> MockProtoParser {
+        MockProtoParser::new().with_frame(frame)
+    }
+
+    /// 创建一个总是返回 None 的 parser
+    pub fn null_parser() -> MockProtoParser {
+        MockProtoParser::new().with_none()
+    }
+
+    /// 创建一个返回请求帧的 parser
+    pub fn request_parser(method: &str, url: &str) -> MockProtoParser {
+        parser_with_frame(MockFrame::request(method, url))
+    }
+
+    /// 创建一个返回响应帧的 parser
+    pub fn response_parser(status: u16) -> MockProtoParser {
+        parser_with_frame(MockFrame::response(status))
+    }
 
     #[test]
     fn mock_frame_request() {

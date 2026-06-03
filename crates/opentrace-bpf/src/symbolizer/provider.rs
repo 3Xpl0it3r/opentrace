@@ -1,9 +1,9 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
-use crate::symbolizers::balzesym::BalzeSymbolizer;
+use crate::symbolizer::balzesym::BalzeSymbolizer;
 
+use super::Symbolizer;
 use super::java::JavaSymbolizer;
-use super::symbolizer::Symbolizer;
 use super::types::Source;
 
 pub struct SymbolizerProvider<'a> {
@@ -39,7 +39,7 @@ impl SymbolizerProvider<'_> {
 #[cfg(test)]
 mod tests {
     use super::SymbolizerProvider;
-    use crate::symbolizers::Source;
+    use crate::symbolizer::Source;
 
     #[test]
     fn default_provider_returns_symbolizer_for_non_java_sources() {

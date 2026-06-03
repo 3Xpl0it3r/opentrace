@@ -55,8 +55,14 @@ fuzz_target!(|data: &[u8]| {
         if s == "NONE" {
             assert_eq!(flags, 0);
         } else {
-            assert!(s.contains("FIN") || s.contains("SYN") || s.contains("RST") ||
-                    s.contains("PSH") || s.contains("ACK") || s.contains("URG"));
+            assert!(
+                s.contains("FIN")
+                    || s.contains("SYN")
+                    || s.contains("RST")
+                    || s.contains("PSH")
+                    || s.contains("ACK")
+                    || s.contains("URG")
+            );
         }
     }
 });

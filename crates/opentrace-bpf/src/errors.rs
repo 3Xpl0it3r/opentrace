@@ -52,13 +52,19 @@ mod tests {
 
     #[test]
     fn io_error_display() {
-        let err = EbpfError::IO(std::io::Error::new(std::io::ErrorKind::NotFound, "file not found"));
+        let err = EbpfError::IO(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "file not found",
+        ));
         assert_eq!(err.to_string(), "IO Error: file not found");
     }
 
     #[test]
     fn parse_error_display() {
-        let err: EbpfError = "invalid address".parse::<std::net::Ipv4Addr>().unwrap_err().into();
+        let err: EbpfError = "invalid address"
+            .parse::<std::net::Ipv4Addr>()
+            .unwrap_err()
+            .into();
         assert!(err.to_string().contains("addr_parse Error"));
     }
 
@@ -88,7 +94,7 @@ mod tests {
 
     #[test]
     fn io_error_from() {
-        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "test");
+        let io_err = std::io::Error::other("test");
         let err: EbpfError = io_err.into();
         assert!(matches!(err, EbpfError::IO(_)));
     }

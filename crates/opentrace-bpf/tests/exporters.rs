@@ -4,7 +4,7 @@
 //!
 //! 测试导出器
 
-use opentrace_bpf::exporter::{
+use opentrace_bpf::exporters::{
     Exporter, SimpleBoundChannelExpoter, SimpleUnboundChannelExporter, StreamWriterExpoter,
 };
 use opentrace_bpf::format::StreamFormatter;

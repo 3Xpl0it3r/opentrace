@@ -1,6 +1,6 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use opentrace_bpf::protocol::appproto::HttpParser;
-use opentrace_bpf::protocol::{ProtoParser, eth_proto, ip_proto};
+use opentrace_bpf::protocols::app_protos::HttpParser;
+use opentrace_bpf::protocols::{ProtoParser, eth_proto, ip_proto};
 
 fn bench_http1_request_parse(c: &mut Criterion) {
     let parser = HttpParser::default();

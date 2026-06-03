@@ -1,8 +1,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use opentrace_bpf::protocol::ProtoParser;
-use opentrace_bpf::protocol::appproto::HttpParser;
+use opentrace_bpf::protocols::ProtoParser;
+use opentrace_bpf::protocols::app_protos::HttpParser;
 
 /// 构造一个看起来像 HTTP/2 帧的数据
 fn make_http2_frame_like(data: &[u8]) -> Vec<u8> {

@@ -1,6 +1,8 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
-use crate::exporters::Exporter;
+use crate::exporter::Exporter;
+
+type LoadFn<T> = Box<dyn Fn(&[u8]) -> T>;
 
 /// Mock Exporter 实现，用于测试
 ///
@@ -8,7 +10,7 @@ use crate::exporters::Exporter;
 ///
 /// ```rust
 /// use opentrace_bpf::testing::MockExporter;
-/// use opentrace_bpf::exporter::Exporter;
+/// use opentrace_bpf::exporters::Exporter;
 ///
 /// let mut exporter = MockExporter::<u32>::new();
 /// exporter.dispatch(42);
@@ -19,7 +21,7 @@ use crate::exporters::Exporter;
 /// ```
 pub struct MockExporter<T> {
     events: Vec<T>,
-    load_fn: Option<Box<dyn Fn(&[u8]) -> T>>,
+    load_fn: Option<LoadFn<T>>,
 }
 
 impl<T> MockExporter<T> {
@@ -32,7 +34,7 @@ impl<T> MockExporter<T> {
     }
 
     /// 设置自定义 load 函数
-    pub fn with_load_fn(mut self, f: Box<dyn Fn(&[u8]) -> T>) -> Self {
+    pub fn with_load_fn(mut self, f: LoadFn<T>) -> Self {
         self.load_fn = Some(f);
         self
     }
@@ -104,18 +106,17 @@ impl<T> Exporter<T> for MockExporter<T> {
     }
 }
 
-/// 用于测试的 NullExporter，丢弃所有事件
-pub struct NullExporter;
-
-impl<T> Exporter<T> for NullExporter {
-    fn dispatch(&mut self, _event: T) {
-        // 什么都不做
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    pub struct NullExporter;
+
+    impl<T> Exporter<T> for NullExporter {
+        fn dispatch(&mut self, _event: T) {
+            // 什么都不做
+        }
+    }
 
     #[test]
     fn mock_exporter_collects_events() {

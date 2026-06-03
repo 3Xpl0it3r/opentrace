@@ -109,8 +109,8 @@ fn parse_symbol_output(input: &str) -> Vec<(ResolvedSymbol<'static>, u64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::symbolizers::{Source, SymbolizeInput, Symbolizer};
-    use rstest::rstest;
+    use crate::symbolizer::{Source, SymbolizeInput, Symbolizer};
+    /* use rstest::rstest; */
 
     // ==================== symbol_contains 测试 ====================
 

@@ -8,12 +8,12 @@ use libbpf_rs::skel::{OpenSkel, SkelBuilder};
 use libbpf_rs::{MapCore, MapFlags, OpenObject, PerfBufferBuilder};
 
 use crate::bpf::socket_tcp::{SocketTcpSkel, SocketTcpSkelBuilder};
-use crate::collectors::macros::{
+use crate::collector::macros::{
     attach_kprobe, attach_kretprobe, attach_multiple_tracepoints, attach_tracepoint,
     define_collector,
 };
-use crate::exporters::{Exporter, helper::load_and_dispath_with};
-use crate::protocols::{ParsedFrame, ProtoParser};
+use crate::exporter::{Exporter, helper::load_and_dispath_with};
+use crate::protocol::{ParsedFrame, ProtoParser};
 use crate::skeleton::with_custom_btf_open_opts;
 use crate::{EbpfError, ProbeRegistry};
 

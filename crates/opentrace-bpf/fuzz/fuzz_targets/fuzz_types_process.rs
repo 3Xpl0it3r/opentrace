@@ -19,7 +19,7 @@ fuzz_target!(|data: &[u8]| {
         assert!(json.is_ok());
 
         // to_value 也应该成功
-        let value = serde_json::to_value(&process);
+        let value = serde_json::to_value(process);
         assert!(value.is_ok());
     }
 

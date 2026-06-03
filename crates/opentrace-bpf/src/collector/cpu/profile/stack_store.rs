@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::symbol::{Source, SymbolizeInput, Symbolizer};
+use crate::symbolizer::{Source, SymbolizeInput, Symbolizer};
 const KSTACK_FLAGS: u64 = 0xFFFFFFFF;
 
 // 存储采用B树，AI辅助写的, 模型gpt5.5
@@ -220,7 +220,7 @@ mod tests {
     use std::borrow::Cow;
 
     use super::{KSTACK_FLAGS, StacksStorage};
-    use crate::symbol::{ResolvedSymbol, Source, SymbolizeInput, Symbolizer};
+    use crate::symbolizer::{ResolvedSymbol, Source, SymbolizeInput, Symbolizer};
 
     struct OffsetSymbolizer;
 

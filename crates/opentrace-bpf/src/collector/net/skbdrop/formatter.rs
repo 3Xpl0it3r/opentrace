@@ -1,12 +1,10 @@
-use std::borrow::Cow;
 use std::mem;
 
 use crate::format::StreamFormatter;
-use crate::symbol::{ResolvedSymbol, Source, SymbolizeInput, Symbolizer};
-use crate::types::net::{Addr, AddrV4, AddrV6, L2Info, L3Info, L4Info};
+use crate::symbolizer::{Source, SymbolizeInput, Symbolizer};
+use crate::types::net::{AddrV4, AddrV6};
 
 use super::Event;
-use super::event::DROP_SRC_KFREE_SKB;
 
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 pub struct DefaultFormatter<'a> {
@@ -81,8 +79,13 @@ impl DefaultFormatter<'_> {
 
 #[cfg(test)]
 mod tests {
+    /* use super::event::DROP_SRC_KFREE_SKB; */
     use super::*;
+    use crate::symbolizer::ResolvedSymbol;
+    use crate::types::net::{Addr, L2Info, L3Info, L4Info};
     use rstest::rstest;
+    use std::borrow::Cow;
+    const DROP_SRC_KFREE_SKB: u8 = 1;
 
     // Mock Symbolizer 实现
     struct MockSymbolizer;

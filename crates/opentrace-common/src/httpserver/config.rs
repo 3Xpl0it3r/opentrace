@@ -20,7 +20,7 @@ impl Config {
 pub(super) struct SecurityConfig {
     pub(super) server_cert: String,
     pub(super) server_cert_key: String,
-    pub(super) client_ca_certfile: String,
+    pub(super) _client_ca_certfile: String,
 }
 
 impl From<&Config> for SecurityConfig {
@@ -28,7 +28,7 @@ impl From<&Config> for SecurityConfig {
         Self {
             server_cert: value.server_cert.clone(),
             server_cert_key: value.server_cert_key.clone(),
-            client_ca_certfile: value.client_ca_certfile.clone(),
+            _client_ca_certfile: value.client_ca_certfile.clone(),
         }
     }
 }

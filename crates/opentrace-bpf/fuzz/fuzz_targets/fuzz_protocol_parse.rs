@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use opentrace_bpf::protocol::{eth_proto, ip_proto};
+use opentrace_bpf::protocols::{eth_proto, ip_proto};
 
 fuzz_target!(|data: &[u8]| {
     // 尝试将数据解释为协议名称字符串

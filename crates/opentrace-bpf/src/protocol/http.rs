@@ -720,7 +720,7 @@ fn trim_ascii(mut data: &[u8]) -> &[u8] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocols::{MessageType, ParsedFrame, ProtoParser};
+    use crate::protocol::{MessageType, ParsedFrame, ProtoParser};
     use rstest::rstest;
 
     // ==================== parse_method 测试 ====================

@@ -10,7 +10,10 @@ use opentrace_bpf::EbpfError;
 
 #[test]
 fn ebpf_error_io_display() {
-    let err = EbpfError::IO(std::io::Error::new(std::io::ErrorKind::NotFound, "file not found"));
+    let err = EbpfError::IO(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "file not found",
+    ));
     assert_eq!(err.to_string(), "IO Error: file not found");
 }
 
@@ -42,7 +45,7 @@ fn ebpf_error_other_display() {
 
 #[test]
 fn ebpf_error_from_io_error() {
-    let io_err = std::io::Error::new(std::io::ErrorKind::Other, "test");
+    let io_err = std::io::Error::other("test");
     let err: EbpfError = io_err.into();
     assert!(matches!(err, EbpfError::IO(_)));
 }

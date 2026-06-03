@@ -4,13 +4,12 @@
 //!
 //! 测试 MockSkbdropCollector、MockSocketTcpCollector、MockProfileCollector
 
-use opentrace_bpf::collector::Collector;
+use opentrace_bpf::EbpfError;
+use opentrace_bpf::collectors::Collector;
 use opentrace_bpf::testing::{
-    MockProfileCollector, MockSkbdropCollector, MockSocketTcpCollector, make_profile_event,
-    make_profile_event_both, make_profile_event_single, make_skbdrop_event, make_socket_tcp_event,
-    make_socket_tcp_event_with_target,
+    MockProfileCollector, MockSkbdropCollector, MockSocketTcpCollector, make_profile_event_both,
+    make_profile_event_single, make_socket_tcp_event,
 };
-use opentrace_bpf::{EbpfError, collector};
 use std::time::Duration;
 
 // ==================== MockSkbdropCollector 测试 ====================
@@ -109,8 +108,7 @@ fn mock_profile_collector_push_pop_events() {
 #[test]
 fn mock_collectors_error_recovery() {
     let (collector, _) = MockSkbdropCollector::new();
-    let collector = collector.with_poll_error(EbpfError::Other("error".into()));
-    let mut collector = collector;
+    let mut collector = collector.with_poll_error(EbpfError::Other("error".into()));
 
     // 第一次 poll 失败
     assert!(collector.poll(Duration::from_millis(100)).is_err());
@@ -121,8 +119,7 @@ fn mock_collectors_error_recovery() {
 #[test]
 fn mock_collectors_attach_error() {
     let (collector, _) = MockSkbdropCollector::new();
-    let collector = collector.with_attach_error(EbpfError::Other("attach error".into()));
-    let mut collector = collector;
+    let mut collector = collector.with_attach_error(EbpfError::Other("attach error".into()));
 
     assert!(collector.attach_probe().is_err());
     assert!(collector.attach_probe().is_ok());

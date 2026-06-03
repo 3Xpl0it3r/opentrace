@@ -7,8 +7,7 @@ use std::time::Duration;
 
 use crate::EbpfError;
 use crate::collector::Collector;
-use crate::collector::net::SkbdropEvent;
-use crate::exporter::Exporter;
+use crate::collectors::net::SkbdropEvent;
 use crate::types::net::{Addr, L2Info, L3Info, L4Info};
 
 /// Mock SkbdropCollector，用于测试
@@ -17,7 +16,7 @@ use crate::types::net::{Addr, L2Info, L3Info, L4Info};
 ///
 /// ```rust
 /// use opentrace_bpf::testing::MockSkbdropCollector;
-/// use opentrace_bpf::collector::Collector;
+/// use opentrace_bpf::collectors::Collector;
 /// use std::time::Duration;
 ///
 /// let (mut collector, _rx) = MockSkbdropCollector::new();
@@ -35,7 +34,7 @@ pub struct MockSkbdropCollector {
 impl MockSkbdropCollector {
     /// 创建新的 MockSkbdropCollector
     pub fn new() -> (Self, std::sync::mpsc::Receiver<SkbdropEvent>) {
-        let (tx, rx) = std::sync::mpsc::channel();
+        let (_tx, rx) = std::sync::mpsc::channel();
         (
             Self {
                 events: VecDeque::new(),
@@ -112,7 +111,7 @@ pub fn make_skbdrop_event(
     dport: u16,
     drop_source: u8,
 ) -> SkbdropEvent {
-    use crate::collector::net::SkbdropEvent;
+    use crate::collectors::net::SkbdropEvent;
 
     SkbdropEvent {
         l2_info: L2Info { eth_proto: 0x0800 },
@@ -142,10 +141,6 @@ pub fn make_skbdrop_event(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::collector::net::SkbdropEventDefaultFormatter;
-    use crate::format::StreamFormatter;
-    use crate::symbol::Source;
-    use crate::symbol::SymbolizerProvider;
 
     #[test]
     fn mock_skbdrop_collector_default_returns_ok() {

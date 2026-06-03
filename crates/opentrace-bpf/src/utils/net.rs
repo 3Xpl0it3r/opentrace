@@ -47,7 +47,6 @@ pub fn ipaddr_to_u128(ip_str: &str) -> Result<[u32; 4], EbpfError> {
     }
 }
 
-#[allow(dead_code)]
 #[inline]
 pub fn tcp_flags(flags: u16) -> String {
     let flags = u16::from_be(flags);

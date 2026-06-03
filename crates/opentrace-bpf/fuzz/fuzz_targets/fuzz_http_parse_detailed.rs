@@ -1,8 +1,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use opentrace_bpf::protocol::appproto::HttpParser;
-use opentrace_bpf::protocol::{ParsedFrame, ProtoParser};
+use opentrace_bpf::protocols::app_protos::HttpParser;
+use opentrace_bpf::protocols::{ParsedFrame, ProtoParser};
 
 fuzz_target!(|data: &[u8]| {
     let parser = HttpParser::default();

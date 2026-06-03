@@ -8,11 +8,11 @@ use libbpf_rs::{MapCore, MapFlags, OpenObject, PerfBufferBuilder};
 use crate::bpf::skbdrop::{SkbdropSkel, SkbdropSkelBuilder};
 use crate::env;
 use crate::errors::EbpfError;
-use crate::exporters::{Exporter, helper::load_and_dispatch};
-use crate::probes::Registry as ProbeRegistry;
+use crate::exporter::{Exporter, helper::load_and_dispatch};
+use crate::probe::Registry as ProbeRegistry;
 use crate::skeleton::with_custom_btf_open_opts;
 
-use crate::collectors::macros::{attach_kprobe, attach_kretprobe, define_collector};
+use crate::collector::macros::{attach_kprobe, attach_kretprobe, define_collector};
 
 use super::config::Config;
 use super::event::Event;

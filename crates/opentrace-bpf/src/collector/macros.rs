@@ -10,7 +10,7 @@ macro_rules! define_collector {
             _links: Vec<::libbpf_rs::Link>,
         }
 
-        impl<'a> $crate::collectors::Collector for $name<'a> {
+        impl<'a> $crate::collector::Collector for $name<'a> {
             fn poll(
                 &mut self,
                 interval: ::std::time::Duration,

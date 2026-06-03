@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use crate::symbol::{ResolvedSymbol, Source, SymbolizeInput, Symbolizer};
+use crate::symbolizer::{ResolvedSymbol, SymbolizeInput, Symbolizer};
 
 /// Mock Symbolizer 实现，用于测试
 ///
@@ -11,7 +11,7 @@ use crate::symbol::{ResolvedSymbol, Source, SymbolizeInput, Symbolizer};
 ///
 /// ```rust
 /// use opentrace_bpf::testing::MockSymbolizer;
-/// use opentrace_bpf::symbol::{Symbolizer, SymbolizeInput, Source};
+/// use opentrace_bpf::symbolizers::{Symbolizer, SymbolizeInput, Source};
 ///
 /// let symbolizer = MockSymbolizer::new()
 ///     .with_symbol(0x1000, "my_function", 0x1000);
@@ -92,6 +92,7 @@ impl Symbolizer for MockSymbolizer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::symbolizer::Source;
 
     #[test]
     fn mock_symbolizer_returns_unknown_for_unmapped() {

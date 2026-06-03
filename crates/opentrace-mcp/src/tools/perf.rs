@@ -1,17 +1,17 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
-use opentrace_bpf::exporter::SimpleUnboundChannelExporter;
+use opentrace_bpf::exporters::SimpleUnboundChannelExporter;
 use rmcp::model::{CallToolResult, Content};
 use rmcp::{ErrorData, schemars};
 use serde::Deserialize;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::Duration;
 
-use opentrace_bpf::collector::Collector;
-use opentrace_bpf::collector::cpu::{
+use opentrace_bpf::collectors::Collector;
+use opentrace_bpf::collectors::cpu::{
     ProfileCollector, ProfileConfig, ProfileEvent, ProfileStackStorage,
 };
-use opentrace_bpf::symbol::{Source, SymbolizerProvider};
+use opentrace_bpf::symbolizers::{Source, SymbolizerProvider};
 
 use crate::errors::MCPError;
 

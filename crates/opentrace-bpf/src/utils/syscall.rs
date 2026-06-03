@@ -143,6 +143,9 @@ mod tests {
     #[test]
     fn default_attrs_sample_period() {
         let builder = PerfEventFdBuilder::default();
-        assert_eq!(unsafe { builder.attrs.__bindgen_anon_1.sample_period }, DEFAULT_SAMPLE_PERIOD);
+        assert_eq!(
+            unsafe { builder.attrs.__bindgen_anon_1.sample_period },
+            DEFAULT_SAMPLE_PERIOD
+        );
     }
 }

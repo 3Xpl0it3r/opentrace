@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 use crate::EbpfError;
-use crate::collectors::Collector;
+use crate::collector::Collector;
 
 /// Mock Collector 实现，用于测试
 ///
@@ -12,7 +12,7 @@ use crate::collectors::Collector;
 ///
 /// ```rust
 /// use opentrace_bpf::testing::MockCollector;
-/// use opentrace_bpf::collector::Collector;
+/// use opentrace_bpf::collectors::Collector;
 /// use std::time::Duration;
 ///
 /// let mut collector = MockCollector::new();

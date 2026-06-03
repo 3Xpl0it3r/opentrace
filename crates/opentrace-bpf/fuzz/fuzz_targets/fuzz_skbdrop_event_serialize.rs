@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use opentrace_bpf::collector::net::SkbdropEvent;
+use opentrace_bpf::collectors::net::SkbdropEvent;
 use opentrace_bpf::types::net::{Addr, L2Info, L3Info, L4Info};
 
 fuzz_target!(|data: &[u8]| {

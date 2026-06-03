@@ -49,7 +49,7 @@ mod tests {
     use tokio_test::block_on;
 
     use super::{SimpleBoundChannelExpoter, SimpleUnboundChannelExporter};
-    use crate::exporters::Exporter;
+    use crate::exporter::Exporter;
 
     #[test]
     fn unbounded_exporter_sends_converted_events() {

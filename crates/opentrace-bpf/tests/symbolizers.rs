@@ -4,9 +4,7 @@
 //!
 //! 测试符号解析器
 
-use opentrace_bpf::symbol::{
-    ResolvedSymbol, Source, SymbolizeInput, Symbolizer, SymbolizerProvider,
-};
+use opentrace_bpf::symbolizers::{ResolvedSymbol, Source, SymbolizerProvider};
 use rstest::rstest;
 
 // ==================== Source 测试 ====================
@@ -82,6 +80,8 @@ fn symbolizer_provider_returns_symbolizer_for_non_java() {
 #[cfg(feature = "testing")]
 mod mock_tests {
     use super::*;
+    use opentrace_bpf::symbolizers::SymbolizeInput;
+    use opentrace_bpf::symbolizers::Symbolizer;
     use opentrace_bpf::testing::MockSymbolizer;
 
     #[test]

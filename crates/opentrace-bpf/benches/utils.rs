@@ -1,8 +1,8 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use opentrace_bpf::utils::bytes::Bytes;
 use opentrace_bpf::utils::cstring;
 use opentrace_bpf::utils::net::{ipaddr_to_u128, tcp_flags, u32_to_ipaddr_v4, u128_to_ipaddr_v6};
-use opentrace_bpf::utils::time::{Nanoseconds, TimeAsNanosecond};
+use opentrace_bpf::utils::units::bytes::Bytes;
+use opentrace_bpf::utils::units::time::{Nanoseconds, TimeAsNanosecond};
 
 fn bench_bytes_display(c: &mut Criterion) {
     c.bench_function("bytes_display_0", |b| {

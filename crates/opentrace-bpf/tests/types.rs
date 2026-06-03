@@ -23,7 +23,9 @@ fn addr_v4_display(#[case] addr: u32, #[case] expected: &str) {
 
 #[test]
 fn addr_v4_from_addr() {
-    let addr = Addr { v4addr: u32::from_ne_bytes([192, 168, 1, 1]) };
+    let addr = Addr {
+        v4addr: u32::from_ne_bytes([192, 168, 1, 1]),
+    };
     let v4 = AddrV4::from(addr);
     assert_eq!(v4.to_string(), "192.168.1.1");
 }
@@ -65,9 +67,15 @@ fn addr_from_u32_array() {
 
 #[test]
 fn addr_hash_and_eq() {
-    let addr1 = Addr { v4addr: u32::from_ne_bytes([10, 0, 0, 1]) };
-    let addr2 = Addr { v4addr: u32::from_ne_bytes([10, 0, 0, 1]) };
-    let addr3 = Addr { v4addr: u32::from_ne_bytes([10, 0, 0, 2]) };
+    let addr1 = Addr {
+        v4addr: u32::from_ne_bytes([10, 0, 0, 1]),
+    };
+    let addr2 = Addr {
+        v4addr: u32::from_ne_bytes([10, 0, 0, 1]),
+    };
+    let addr3 = Addr {
+        v4addr: u32::from_ne_bytes([10, 0, 0, 2]),
+    };
 
     assert_eq!(addr1, addr2);
     assert_ne!(addr1, addr3);
@@ -93,8 +101,12 @@ fn l2_info_serialization() {
 #[test]
 fn l3_info_serialization_ipv4() {
     let l3 = L3Info {
-        saddr: Addr { v4addr: u32::from_ne_bytes([10, 0, 0, 1]) },
-        daddr: Addr { v4addr: u32::from_ne_bytes([10, 0, 0, 2]) },
+        saddr: Addr {
+            v4addr: u32::from_ne_bytes([10, 0, 0, 1]),
+        },
+        daddr: Addr {
+            v4addr: u32::from_ne_bytes([10, 0, 0, 2]),
+        },
         tot_len: 1500,
         ip_version: 4,
         l4_proto: 6,

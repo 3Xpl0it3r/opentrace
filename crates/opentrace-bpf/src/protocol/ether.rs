@@ -3,7 +3,6 @@
 use crate::EbpfError;
 use libc::htons;
 
-
 pub const ETH_P_IP: u16 = htons(0x800);
 pub const ETH_P_IPV6: u16 = htons(0x86dd);
 pub const ETH_P_ARP: u16 = htons(0x0806);

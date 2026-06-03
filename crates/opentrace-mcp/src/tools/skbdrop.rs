@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use opentrace_bpf::exporter::SimpleUnboundChannelExporter;
+use opentrace_bpf::exporters::SimpleUnboundChannelExporter;
 use rmcp::model::{CallToolResult, Content};
 use rmcp::{ErrorData, schemars};
 use serde::Deserialize;
@@ -10,13 +10,13 @@ use tokio::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 use opentrace_bpf::ProbeRegistry;
-use opentrace_bpf::collector::Collector;
-use opentrace_bpf::collector::net::{
+use opentrace_bpf::collectors::Collector;
+use opentrace_bpf::collectors::net::{
     SkbdropCollector, SkbdropConfig, SkbdropEvent, SkbdropEventDefaultFormatter,
 };
 use opentrace_bpf::format::StreamFormatter;
-use opentrace_bpf::protocol::{eth_proto, ip_proto};
-use opentrace_bpf::symbol::{Source, SymbolizerProvider};
+use opentrace_bpf::protocols::{eth_proto, ip_proto};
+use opentrace_bpf::symbolizers::{Source, SymbolizerProvider};
 
 use crate::errors::MCPError;
 
