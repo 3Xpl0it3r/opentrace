@@ -10,12 +10,12 @@ use crate::options::CliOptsCtx;
 pub async fn run(
     ctx: CliOptsCtx,
     command: crate::options::perf::Subcommand,
-    _registry: &mut ProbeRegistry,
+    registry: &mut ProbeRegistry,
     object: &mut opentrace_bpf::CollectorObject,
 ) -> Result<(), CliError> {
     match command {
         crate::options::perf::Subcommand::Profile(options) => {
-            profile::run_as_profile(ctx, options, object).await?;
+            profile::run_as_profile(ctx, options, registry, object).await?;
         }
     }
     Ok(())

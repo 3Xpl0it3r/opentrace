@@ -1,5 +1,6 @@
 mod authentication;
 mod config;
+#[allow(clippy::module_inception)]
 mod server;
 mod errors;
 

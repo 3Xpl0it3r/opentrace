@@ -28,7 +28,6 @@ define_collector!(Collector, SocketTcpSkel);
 impl<'a> Collector<'a> {
     pub fn new(
         object: &'a mut MaybeUninit<OpenObject>,
-        registry: &'a ProbeRegistry,
         config: Config,
         mut sink: impl EventSink<Event> + 'a,
         proto_parser: impl ProtoParser<Output = impl ParsedFrame> + 'a,
@@ -59,60 +58,81 @@ impl<'a> Collector<'a> {
             })
             .build()?;
         Ok(Self {
-            probe_registry: registry,
             skel,
             perf_buffer,
             _links: Vec::new(),
         })
     }
 
-    fn do_attach_probes(&mut self) -> Result<(), crate::EbpfError> {
+    fn do_attach_probes(&mut self, probe_registry: &ProbeRegistry) -> Result<(), crate::EbpfError> {
         // tcp connect
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_connect);
-        attach_kprobe!(self, kp_tcp_connect, "tcp_connect");
-        attach_kretprobe!(self, kret_tcp_connect, "tcp_connect");
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_connect);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_connect);
+        attach_kprobe!(self, probe_registry, kp_tcp_connect, "tcp_connect");
+        attach_kretprobe!(self, probe_registry, kret_tcp_connect, "tcp_connect");
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_connect);
 
         // tcp accept
         let accept_enter_tps = ["sys_enter_accept", "sys_enter_accept4"];
         let accept_exit_tps = ["sys_exit_accept", "sys_exit_accept4"];
-        attach_multiple_tracepoints!(self, "syscalls", tp_sys_enter_accept, accept_enter_tps);
-        attach_kretprobe!(self, kret_sock_alloc, "sock_alloc");
-        attach_multiple_tracepoints!(self, "syscalls", tp_sys_exit_accept, accept_exit_tps);
+        attach_multiple_tracepoints!(
+            self,
+            probe_registry,
+            "syscalls",
+            tp_sys_enter_accept,
+            accept_enter_tps
+        );
+        attach_kretprobe!(self, probe_registry, kret_sock_alloc, "sock_alloc");
+        attach_multiple_tracepoints!(
+            self,
+            probe_registry,
+            "syscalls",
+            tp_sys_exit_accept,
+            accept_exit_tps
+        );
 
         // tcp read
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_read);
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_readv);
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_recv);
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_recvfrom);
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_recvmsg);
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_recvmmsg);
-        attach_kprobe!(self, kp_security_socket_recvmsg, "security_socket_recvmsg");
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_read);
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_recv);
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_recvfrom);
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_readv);
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_recvmsg);
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_recvmmsg);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_read);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_readv);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_recv);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_recvfrom);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_recvmsg);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_recvmmsg);
+        attach_kprobe!(
+            self,
+            probe_registry,
+            kp_security_socket_recvmsg,
+            "security_socket_recvmsg"
+        );
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_read);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_recv);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_recvfrom);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_readv);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_recvmsg);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_recvmmsg);
 
         // tcp write/send
-        attach_kprobe!(self, kp_security_socket_sendmsg, "security_socket_sendmsg");
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_write);
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_writev);
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_send);
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_sendto);
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_sendmsg);
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_sendmmsg);
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_write);
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_writev);
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_send);
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_sendto);
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_sendmsg);
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_sendmmsg);
+        attach_kprobe!(
+            self,
+            probe_registry,
+            kp_security_socket_sendmsg,
+            "security_socket_sendmsg"
+        );
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_write);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_writev);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_send);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_sendto);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_sendmsg);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_sendmmsg);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_write);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_writev);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_send);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_sendto);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_sendmsg);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_sendmmsg);
 
         // tcp close
-        attach_tracepoint!(self, "syscalls", tp_sys_enter_close);
-        attach_tracepoint!(self, "syscalls", tp_sys_exit_close);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_enter_close);
+        attach_tracepoint!(self, probe_registry, "syscalls", tp_sys_exit_close);
 
         Ok(())
     }

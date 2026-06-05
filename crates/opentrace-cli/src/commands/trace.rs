@@ -38,7 +38,6 @@ fn run_as_skbdrop(
 
     let mut collector = SkbdropCollector::new(
         object,
-        registry,
         options.to_config(ctx).into(),
         StreamWriterSink::new(
             std::io::stdout(),
@@ -46,7 +45,7 @@ fn run_as_skbdrop(
         ),
     )?;
 
-    collector.attach_probe()?;
+    collector.attach_probe(registry)?;
     loop {
         let _ = collector.poll(Duration::from_millis(100));
     }

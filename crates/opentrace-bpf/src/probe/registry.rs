@@ -23,6 +23,14 @@ impl Registry {
         })
     }
 
+    #[cfg(feature = "testing")]
+    pub fn from_test_data() -> Self {
+        Self {
+            kprobes: read_kprobes_from("tests/data/available_filter_functions").unwrap(),
+            tracepoints: read_tracepoints_from("tests/data/available_events").unwrap(),
+        }
+    }
+
     #[inline]
     pub(crate) fn kprobe_is_available(&self, kprobe: &str) -> bool {
         let supported = self.kprobes.contains_key(kprobe);

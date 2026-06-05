@@ -14,6 +14,15 @@ name = "opentrace-agent"
 path = "src/bin/opentrace.rs"
 
 [dependencies]
+opentrace-bpf = {workspace = true}
+opentrace-kit = {workspace = true}
+tokio = {workspace = true}
+tokio-util = {workspace = true}
+thiserror = { workspace = true }
+axum = { workspace = true }
+prometheus = {workspace = true}
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [lints]
 workspace = true

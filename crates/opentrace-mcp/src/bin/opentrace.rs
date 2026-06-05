@@ -4,7 +4,7 @@ use axum::Router;
 use clap::Parser;
 
 use opentrace_bpf::ProbeRegistry;
-use opentrace_common::genericserver::{GenericHttpServer, GenericServerConfig};
+use opentrace_kit::httpserver::{GenericHttpServer, GenericServerConfig};
 use opentrace_mcp::{MCPError, McpServerOptions, OpentraceMcpServer};
 
 #[tokio::main]

@@ -1,5 +1,8 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
+use std::sync::Arc;
+
+use opentrace_bpf::ProbeRegistry;
 use opentrace_bpf::sinks::UnboundedChannelSink;
 use rmcp::model::{CallToolResult, Content};
 use rmcp::{ErrorData, schemars};
@@ -74,14 +77,17 @@ impl PerfMcpToolParams {
     }
 }
 
-pub(crate) async fn tool_handler(params: PerfMcpToolParams) -> Result<CallToolResult, ErrorData> {
+pub(crate) async fn tool_handler(
+    params: PerfMcpToolParams,
+    probe_registry: Arc<ProbeRegistry>,
+) -> Result<CallToolResult, ErrorData> {
     let mut object = opentrace_bpf::open_object_storage();
     let (sink, event_rx) = UnboundedChannelSink::<ProfileEvent, _>::new();
     let mut collector = ProfileCollector::new(&mut object, params.to_config(), sink)
         .map_err(MCPError::from)
         .map_err(ErrorData::from)?;
     collector
-        .attach_probe()
+        .attach_probe(&probe_registry)
         .map_err(MCPError::from)
         .map_err(ErrorData::from)?;
 

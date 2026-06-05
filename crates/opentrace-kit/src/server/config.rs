@@ -2,13 +2,24 @@
 //
 //
 
-#[derive(Default)]
 pub struct Config {
     pub bind_port: u32,
     pub bear_token: String,
     pub server_cert: String,
     pub server_cert_key: String,
     pub client_ca_certfile: String,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            bind_port: 8000,
+            bear_token: Default::default(),
+            server_cert: Default::default(),
+            server_cert_key: Default::default(),
+            client_ca_certfile: Default::default(),
+        }
+    }
 }
 
 impl Config {

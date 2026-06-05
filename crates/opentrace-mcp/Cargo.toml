@@ -16,7 +16,7 @@ path = "src/bin/opentrace.rs"
 
 [dependencies]
 opentrace-bpf = {workspace = true}
-opentrace-common = {workspace = true}
+opentrace-kit = {workspace = true}
 thiserror = { workspace = true } 
 serde = {workspace = true}
 clap = {workspace = true}

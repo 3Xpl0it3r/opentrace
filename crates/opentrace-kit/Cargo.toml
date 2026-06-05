@@ -1,5 +1,5 @@
 [package]
-name = "opentrace-common"
+name = "opentrace-kit"
 publish.workspace = true
 edition.workspace = true
 version.workspace = true
@@ -10,7 +10,7 @@ repository.workspace = true
 description = "Common types and utilities shared across workspace"
 
 [lib]
-name = "opentrace_common"  
+name = "opentrace_kit"  
 path = "src/lib.rs"          
 crate-type = ["lib"]        
 

@@ -4,11 +4,11 @@ mod net;
 mod cpu;
 mod macros;
 
-use crate::EbpfError;
+use crate::{EbpfError, ProbeRegistry};
 
-pub trait Collector {
+pub trait Collector: Send {
     fn poll(&mut self, internal: std::time::Duration) -> Result<(), EbpfError>;
-    fn attach_probe(&mut self) -> Result<(), EbpfError>;
+    fn attach_probe(&mut self, probe_registry: &ProbeRegistry) -> Result<(), EbpfError>;
 }
 
 pub use cpu::{ProfileCollector, ProfileConfig, ProfileEvent, ProfileStackStorage};

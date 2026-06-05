@@ -6,11 +6,10 @@ use axum::middleware;
 use axum::{Router, http::StatusCode, routing::get};
 use axum_server::tls_rustls::RustlsConfig;
 
-use super::Config;
 use super::authentication::AuthState;
 use super::authentication::bearer_auth_middleware;
-use super::config::SecurityConfig;
-use super::errors::ServerError;
+use super::config::{Config, SecurityConfig};
+use super::errors::Error;
 
 const HEALTH_ENDPOINT: &str = "/healthz";
 /* const METRIC_ENDPOINT: &str = "/mtrics"; */
@@ -38,7 +37,7 @@ impl Server {
         Self { cfg, router }
     }
 
-    pub async fn run(self) -> Result<(), ServerError> {
+    pub async fn run(self) -> Result<(), Error> {
         if self.cfg.is_tls() {
             self.serve_tls().await
         } else {
@@ -55,7 +54,7 @@ impl Server {
             .route(HEALTH_ENDPOINT, get(health_handler))
     }
 
-    pub fn nest(&mut self, path: &str, router: Router) -> Result<(), ServerError> {
+    pub fn nest(&mut self, path: &str, router: Router) -> Result<(), Error> {
         self.router = self.router.clone().nest(path, router);
         Ok(())
     }
@@ -70,15 +69,15 @@ impl Server {
     }
 
     #[inline]
-    pub async fn serve_tls(self) -> Result<(), ServerError> {
+    pub async fn serve_tls(self) -> Result<(), Error> {
         let addr: std::net::SocketAddr = format!("0.0.0.0:{}", self.cfg.bind_port)
             .parse()
-            .map_err(|e| ServerError::Other(format!("parse address failed: {}", e)))?;
+            .map_err(|e| Error::Other(format!("parse address failed: {}", e)))?;
         let tls_config = build_tls_config((&self.cfg).into()).await?;
         axum_server::bind_rustls(addr, tls_config)
             .serve(self.router.into_make_service())
             .await
-            .map_err(|e| ServerError::Other(format!("bind tls failed {}", e)))?;
+            .map_err(|e| Error::Other(format!("bind tls failed {}", e)))?;
         Ok(())
     }
 }
@@ -87,11 +86,11 @@ async fn health_handler() -> StatusCode {
     StatusCode::OK
 }
 
-async fn build_tls_config(security_config: SecurityConfig) -> Result<RustlsConfig, ServerError> {
+async fn build_tls_config(security_config: SecurityConfig) -> Result<RustlsConfig, Error> {
     RustlsConfig::from_pem_file(
         &security_config.server_cert,
         &security_config.server_cert_key,
     )
     .await
-    .map_err(|e| ServerError::Other(format!("faile build tls config {}", e)))
+    .map_err(|e| Error::Other(format!("faile build tls config {}", e)))
 }

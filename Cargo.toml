@@ -3,7 +3,7 @@ resolver = "3"
 members = [
     "crates/opentrace-cli",
     "crates/opentrace-bpf", 
-    "crates/opentrace-common", 
+    "crates/opentrace-kit", 
     "crates/opentrace-mcp",
     "crates/opentrace-server",
     "crates/opentrace-codegen",
@@ -33,7 +33,7 @@ panic = "abort"
 # Workspace member crates
 #
 opentrace-bpf = { path = "crates/opentrace-bpf"}
-opentrace-common = { path = "crates/opentrace-common"}
+opentrace-kit = { path = "crates/opentrace-kit"}
 
 #
 # Third party crates
@@ -50,6 +50,7 @@ tokio-util = "0.7.10"
 libbpf-rs = "0.26.2"
 axum = "0.8.9"
 axum-server = {version="0.8.0", features = ["tls-rustls"]}
+prometheus = "0.14.0"
 
 [workspace.lints.clippy]
 # Don't Panic - prevent panics from unwraps and unsafe slicing or indexing

@@ -34,7 +34,6 @@ define_collector!(Collector, SkbdropSkel);
 impl<'a> Collector<'a> {
     pub fn new(
         object: &'a mut MaybeUninit<OpenObject>,
-        registry: &'a ProbeRegistry,
         config: Config,
         mut sink: impl EventSink<Event> + 'a,
     ) -> Result<Self, EbpfError> {
@@ -63,25 +62,24 @@ impl<'a> Collector<'a> {
             .build()?;
 
         Ok(Self {
-            probe_registry: registry,
             skel,
             perf_buffer,
             _links: Vec::new(),
         })
     }
-    fn do_attach_probes(&mut self) -> Result<(), EbpfError> {
+    fn do_attach_probes(&mut self, probe_registry: &ProbeRegistry) -> Result<(), EbpfError> {
         let mut attached = 0usize;
 
         // 1) kfree_skb 系列：覆盖 TCP 栈/qdisc/驱动等非 netfilter drop
-        let kfree_target = if self.probe_registry.kprobe_is_available(KFREE_SKB_REASON) {
+        let kfree_target = if probe_registry.kprobe_is_available(KFREE_SKB_REASON) {
             Some(KFREE_SKB_REASON)
-        } else if self.probe_registry.kprobe_is_available(KFREE_SKB_FALLBACK) {
+        } else if probe_registry.kprobe_is_available(KFREE_SKB_FALLBACK) {
             Some(KFREE_SKB_FALLBACK)
         } else {
             None
         };
         if let Some(name) = kfree_target {
-            attach_kprobe!(self, kp_kfree_skb, name);
+            attach_kprobe!(self, probe_registry, kp_kfree_skb, name);
             println!("kprobe attached: {}", name);
             attached += 1;
         }
@@ -90,9 +88,9 @@ impl<'a> Collector<'a> {
         // drop和reject的包无法在kfree_skb上捕获到，因此额外挂在nf_hook_slow的包
         let kver = env::kernel_version();
         let need_nf_hook = kver < (5, 0);
-        if need_nf_hook && self.probe_registry.kprobe_is_available(NF_HOOK_SLOW) {
-            attach_kprobe!(self, kp_nf_hook_slow, NF_HOOK_SLOW);
-            attach_kretprobe!(self, kp_nf_hook_slow, NF_HOOK_SLOW);
+        if need_nf_hook && probe_registry.kprobe_is_available(NF_HOOK_SLOW) {
+            attach_kprobe!(self, probe_registry, kp_nf_hook_slow, NF_HOOK_SLOW);
+            attach_kretprobe!(self, probe_registry, kp_nf_hook_slow, NF_HOOK_SLOW);
 
             println!(
                 "kprobe attached: {} (entry+ret, kernel {}.{} < 5.0)",

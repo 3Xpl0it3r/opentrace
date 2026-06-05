@@ -94,7 +94,7 @@ impl Collector for MockCollector {
         self.poll_results.pop_front().unwrap_or(Ok(()))
     }
 
-    fn attach_probe(&mut self) -> Result<(), EbpfError> {
+    fn attach_probe(&mut self, _probe_registry: &crate::ProbeRegistry) -> Result<(), EbpfError> {
         self.attach_count += 1;
         self.attach_results.pop_front().unwrap_or(Ok(()))
     }
@@ -107,16 +107,18 @@ mod tests {
     #[test]
     fn mock_collector_default_returns_ok() {
         let mut collector = MockCollector::new();
+        let registry = crate::ProbeRegistry::from_test_data();
         assert!(collector.poll(Duration::from_millis(100)).is_ok());
-        assert!(collector.attach_probe().is_ok());
+        assert!(collector.attach_probe(&registry).is_ok());
     }
 
     #[test]
     fn mock_collector_counts_calls() {
         let mut collector = MockCollector::new();
+        let registry = crate::ProbeRegistry::from_test_data();
         collector.poll(Duration::from_millis(100)).unwrap();
         collector.poll(Duration::from_millis(100)).unwrap();
-        collector.attach_probe().unwrap();
+        collector.attach_probe(&registry).unwrap();
 
         assert_eq!(collector.poll_count(), 2);
         assert_eq!(collector.attach_count(), 1);
@@ -127,9 +129,10 @@ mod tests {
         let mut collector = MockCollector::new()
             .with_poll_result(Err(EbpfError::Other("poll error".into())))
             .with_attach_result(Err(EbpfError::Other("attach error".into())));
+        let registry = crate::ProbeRegistry::from_test_data();
 
         assert!(collector.poll(Duration::from_millis(100)).is_err());
-        assert!(collector.attach_probe().is_err());
+        assert!(collector.attach_probe(&registry).is_err());
     }
 
     #[test]
@@ -148,8 +151,9 @@ mod tests {
     #[test]
     fn mock_collector_reset_counts() {
         let mut collector = MockCollector::new();
+        let registry = crate::ProbeRegistry::from_test_data();
         collector.poll(Duration::from_millis(100)).unwrap();
-        collector.attach_probe().unwrap();
+        collector.attach_probe(&registry).unwrap();
 
         assert_eq!(collector.poll_count(), 1);
         assert_eq!(collector.attach_count(), 1);

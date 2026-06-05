@@ -102,7 +102,10 @@ impl<'a> CollectorTrait for Collector<'a> {
         Ok(())
     }
 
-    fn attach_probe(&mut self) -> Result<(), crate::EbpfError> {
+    fn attach_probe(
+        &mut self,
+        _probe_registry: &crate::ProbeRegistry,
+    ) -> Result<(), crate::EbpfError> {
         for pfd in self.pfds.iter() {
             attach_perf_event!(self, perf_profile_samples, pfd);
         }

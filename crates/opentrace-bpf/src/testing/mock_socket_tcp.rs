@@ -17,10 +17,12 @@ use crate::types::net::Addr;
 /// ```rust
 /// use opentrace_bpf::testing::MockSocketTcpCollector;
 /// use opentrace_bpf::collectors::Collector;
+/// use opentrace_bpf::ProbeRegistry;
 /// use std::time::Duration;
 ///
 /// let mut collector = MockSocketTcpCollector::new();
-/// collector.attach_probe().unwrap();
+/// let registry = ProbeRegistry::from_test_data();
+/// collector.attach_probe(&registry).unwrap();
 /// collector.poll(Duration::from_millis(100)).unwrap();
 /// ```
 pub struct MockSocketTcpCollector {
@@ -98,7 +100,7 @@ impl Collector for MockSocketTcpCollector {
         Ok(())
     }
 
-    fn attach_probe(&mut self) -> Result<(), EbpfError> {
+    fn attach_probe(&mut self, _probe_registry: &crate::ProbeRegistry) -> Result<(), EbpfError> {
         self.attach_count += 1;
 
         if let Some(err) = self.attach_error.take() {
@@ -167,14 +169,16 @@ mod tests {
     #[test]
     fn mock_socket_tcp_collector_default_returns_ok() {
         let mut collector = MockSocketTcpCollector::new();
-        assert!(collector.attach_probe().is_ok());
+        let registry = crate::ProbeRegistry::from_test_data();
+        assert!(collector.attach_probe(&registry).is_ok());
         assert!(collector.poll(Duration::from_millis(100)).is_ok());
     }
 
     #[test]
     fn mock_socket_tcp_collector_counts_calls() {
         let mut collector = MockSocketTcpCollector::new();
-        collector.attach_probe().unwrap();
+        let registry = crate::ProbeRegistry::from_test_data();
+        collector.attach_probe(&registry).unwrap();
         collector.poll(Duration::from_millis(100)).unwrap();
         collector.poll(Duration::from_millis(100)).unwrap();
 

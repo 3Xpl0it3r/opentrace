@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use opentrace_bpf::ProbeRegistry;
 use opentrace_bpf::collectors::Collector;
 use opentrace_bpf::collectors::cpu::{ProfileCollector, ProfileEvent, ProfileStackStorage};
 use opentrace_bpf::sinks::UnboundedChannelSink;
@@ -16,6 +17,7 @@ const KSTACK_FLAGS: u64 = 0xFFFFFFFF;
 pub async fn run_as_profile(
     ctx: CliOptsCtx,
     options: ProfileOptions,
+    registry: &mut ProbeRegistry,
     object: &mut opentrace_bpf::CollectorObject,
 ) -> Result<(), CliError> {
     let mut symbolizer_provider = SymbolizerProvider::default();
@@ -33,7 +35,7 @@ pub async fn run_as_profile(
 
     let (sink, mut event_rx) = UnboundedChannelSink::<ProfileEvent, _>::new();
     let mut collector = ProfileCollector::new(object, options.to_config(ctx), sink)?;
-    collector.attach_probe()?;
+    collector.attach_probe(registry)?;
 
     let mut stack_storage = ProfileStackStorage::default();
     let mut poll_interval = tokio::time::interval(Duration::from_millis(100));

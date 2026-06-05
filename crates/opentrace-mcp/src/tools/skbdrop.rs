@@ -126,14 +126,11 @@ fn run_skbdrop_blocking(
     let formatter = SkbdropEventDefaultFormatter::new(symbolizer);
 
     let (sink, rx) = UnboundedChannelSink::<SkbdropEvent, SkbdropEvent>::new();
-    let mut collector = SkbdropCollector::new(
-        &mut open_project,
-        probe_registry.as_ref(),
-        params.into_config()?,
-        sink,
-    )
-    .map_err(MCPError::from)?;
-    collector.attach_probe().map_err(MCPError::from)?;
+    let mut collector = SkbdropCollector::new(&mut open_project, params.into_config()?, sink)
+        .map_err(MCPError::from)?;
+    collector
+        .attach_probe(&probe_registry)
+        .map_err(MCPError::from)?;
 
     //  等待10分钟，如果10分钟内抓不到包就退出
     receive_event_blocking(collector, rx, timeout, cancel, &formatter)

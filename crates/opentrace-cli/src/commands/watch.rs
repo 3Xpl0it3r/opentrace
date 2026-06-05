@@ -36,12 +36,11 @@ fn run_watch_elastic(
     let verbose = options.verbose;
     let mut collector = SocketTcpCollector::new(
         object,
-        registry,
         options.to_config(ctx),
         StreamWriterSink::new(std::io::stdout(), SocketTcpFormatter::new(verbose)),
         HttpParser::default(),
     )?;
-    collector.attach_probe()?;
+    collector.attach_probe(registry)?;
 
     loop {
         let _ = collector.poll(Duration::from_millis(100));

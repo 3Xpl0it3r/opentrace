@@ -5,6 +5,7 @@
 //! 测试 MockSkbdropCollector、MockSocketTcpCollector、MockProfileCollector
 
 use opentrace_bpf::EbpfError;
+use opentrace_bpf::ProbeRegistry;
 use opentrace_bpf::collectors::Collector;
 use opentrace_bpf::testing::{
     MockProfileCollector, MockSkbdropCollector, MockSocketTcpCollector, make_profile_event_both,
@@ -17,8 +18,9 @@ use std::time::Duration;
 #[test]
 fn mock_skbdrop_collector_basic_operations() {
     let (mut collector, _rx) = MockSkbdropCollector::new();
+    let registry = ProbeRegistry::from_test_data();
 
-    assert!(collector.attach_probe().is_ok());
+    assert!(collector.attach_probe(&registry).is_ok());
     assert!(collector.poll(Duration::from_millis(100)).is_ok());
     assert_eq!(collector.attach_count(), 1);
     assert_eq!(collector.poll_count(), 1);
@@ -39,8 +41,9 @@ fn mock_skbdrop_collector_with_error() {
 #[test]
 fn mock_socket_tcp_collector_basic_operations() {
     let mut collector = MockSocketTcpCollector::new();
+    let registry = ProbeRegistry::from_test_data();
 
-    assert!(collector.attach_probe().is_ok());
+    assert!(collector.attach_probe(&registry).is_ok());
     assert!(collector.poll(Duration::from_millis(100)).is_ok());
     assert_eq!(collector.attach_count(), 1);
     assert_eq!(collector.poll_count(), 1);
@@ -73,8 +76,9 @@ fn mock_socket_tcp_collector_push_pop_events() {
 #[test]
 fn mock_profile_collector_basic_operations() {
     let mut collector = MockProfileCollector::new();
+    let registry = ProbeRegistry::from_test_data();
 
-    assert!(collector.attach_probe().is_ok());
+    assert!(collector.attach_probe(&registry).is_ok());
     assert!(collector.poll(Duration::from_millis(100)).is_ok());
     assert_eq!(collector.attach_count(), 1);
     assert_eq!(collector.poll_count(), 1);
@@ -120,7 +124,8 @@ fn mock_collectors_error_recovery() {
 fn mock_collectors_attach_error() {
     let (collector, _) = MockSkbdropCollector::new();
     let mut collector = collector.with_attach_error(EbpfError::Other("attach error".into()));
+    let registry = ProbeRegistry::from_test_data();
 
-    assert!(collector.attach_probe().is_err());
-    assert!(collector.attach_probe().is_ok());
+    assert!(collector.attach_probe(&registry).is_err());
+    assert!(collector.attach_probe(&registry).is_ok());
 }
