@@ -50,42 +50,47 @@ sudo opentrace-mcp
 ## 技术架构
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              用户入口层                                      │
-│                                                                             │
-│  ┌───────────────┐      ┌─────────────────────────┐  ┌───────────────────┐ │
-│  │ opentrace-cli │      │     opentrace-mcp        │  │ opentrace-agent   │ │
-│  │  (命令行工具)  │      │  ┌──────┐  ┌─────────┐  │  │ ┌──────┐ ┌─────┐ │ │
-│  │               │      │  │ MCP  │  │ Server  │  │  │ │Agent │ │Server│ │ │
-│  │               │      │  │(数据)│  │ (HTTP)  │  │  │ │(数据)│ │(HTTP)│ │ │
-│  └───────┬───────┘      │  └──┬───┘  └─────────┘  │  │ └──┬───┘ └─────┘ │ │
-│          │              └─────┼────────────────────┘  └────┼─────────────┘ │
-└──────────┼────────────────────┼────────────────────────────┼───────────────┘
-           │                    │                            │
-           │                    │                            │
-           ▼                    ▼                            ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              核心能力层                                      │
-│                              opentrace-bpf                                  │
-│    ┌──────────────┐      ┌──────────────┐      ┌──────────────┐            │
-│    │  Collectors   │      │  Exporters   │      │  Formatters  │            │
-│    │  (eBPF采集)   │      │  (数据导出)  │      │  (数据格式化) │            │
-│    └──────────────┘      └──────────────┘      └──────────────┘            │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-注：opentrace-agent 待实现，架构与 opentrace-mcp 相同
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           用户入口层                                      │
+│                                                                         │
+│  ┌──────────────┐  ┌─────────────────┐  ┌──────────────────────────┐   │
+│  │ opentrace-cli │  │  opentrace-mcp  │  │     opentrace-agent      │   │
+│  │  (命令行工具)  │  │  ┌──────┐       │  │  ┌────────┐ ┌────────┐ │   │
+│  │              │  │  │ MCP  │       │  │  │Manager │ │  API   │ │   │
+│  │              │  │  │(数据)│       │  │  │(Exporter│ │(REST)  │ │   │
+│  └──────┬───────┘  │  └──┬───┘       │  │  │ 生命周期)│ │(axum)  │ │   │
+│         │          └─────┼───────────┘  │  └────┬────┘ └────┬───┘ │   │
+└─────────┼────────────────┼──────────────┼───────┼───────────┼─────┘   │
+          │                │              │       │           │         │
+          ▼                ▼              ▼       ▼           ▼         │
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        opentrace-kit                                    │
+│           通用 HTTP Server (axum/TLS/Auth/Health)                       │
+└─────────────────────────────────────────────────────────────────────────┘
+          │                │              │
+          ▼                ▼              ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            核心能力层                                     │
+│                            opentrace-bpf                                 │
+│    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐             │
+│    │  Collector   │    │  Sink        │    │  Formatter   │             │
+│    │  (eBPF采集)   │    │  (数据导出)  │    │  (格式化)    │             │
+│    └──────────────┘    └──────────────┘    └──────────────┘             │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 | 组件 | 作用 | 位置 |
 |------|------|------|
 | **opentrace-cli** | 命令行工具，直接调用 opentrace-bpf | `crates/opentrace-cli/` |
-| **opentrace-mcp** | MCP 服务，数据层直接调用 opentrace-bpf，通过 opentrace-server 提供 HTTP 服务 | `crates/opentrace-mcp/` |
-| **opentrace-agent** | Agent 服务（待实现），架构同 opentrace-mcp | `crates/opentrace-agent/` |
-| **opentrace-server** | 通用 HTTP 服务器框架，为 mcp/agent 提供 HTTP 服务 | `crates/opentrace-server/` |
-| **Collector** | 用户态 eBPF 程序，负责挂载探针、采集内核数据 | `crates/opentrace-bpf/src/collectors/` |
-| **Exporter** | 数据导出器，将采集的数据发送到目标（终端/ES/Kafka等） | `crates/opentrace-bpf/src/exporters/` |
+| **opentrace-mcp** | MCP 服务，通过 opentrace-kit 提供 HTTP 服务 | `crates/opentrace-mcp/` |
+| **opentrace-agent** | Agent 服务（Prometheus 指标 + REST API） | `crates/opentrace-agent/` |
+| **opentrace-kit** | 通用 HTTP 服务器框架，为 mcp/agent 提供基础设施 | `crates/opentrace-kit/` |
+| **opentrace-server** | 管理服务器（占位，待实现） | `crates/opentrace-server/` |
+| **Collector** | 用户态 eBPF 程序，负责挂载探针、采集内核数据 | `crates/opentrace-bpf/src/collector/` |
+| **Sink** | 数据导出器，将采集的数据发送到目标（终端/通道等） | `crates/opentrace-bpf/src/sink/` |
 | **Formatter** | 数据格式化器，将 Event 格式化为可读字符串 | `crates/opentrace-bpf/src/formatter.rs` |
-| **Protocol** | 应用层协议解析器，将原始字节解析为结构化帧 | `crates/opentrace-bpf/src/protocols/` |
+| **Protocol** | 应用层协议解析器，将原始字节解析为结构化帧 | `crates/opentrace-bpf/src/protocol/` |
+| **Symbolizer** | 符号解析（内核/用户态/Go/Java） | `crates/opentrace-bpf/src/symbolizer/` |
 
 ## 环境要求
 
