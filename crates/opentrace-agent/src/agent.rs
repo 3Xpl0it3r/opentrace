@@ -20,18 +20,18 @@ impl OpentraceAgent {
     pub fn new(mut server: GenericHttpServer) -> Result<Self, AgntError> {
         let probe_registry = Arc::new(
             ProbeRegistry::try_init()
-                .map_err(|e| AgntError::Other(format!("init probe registry failed: {e}")))?,
+                .map_err(|e| AgntError::other(format!("init probe registry failed: {e}")))?,
         );
         let manager = Arc::new(Manager::new(probe_registry));
 
         // install metrics
         server
             .nest(METRICS_ENDPOINT, manager.metrics_router())
-            .map_err(|e| AgntError::Other(format!("install metrics apis failed {}", e)))?;
+            .map_err(|e| AgntError::other(format!("install metrics apis failed {}", e)))?;
 
         server
             .nest("/api", crate::manager::install_apis(manager.clone()))
-            .map_err(|e| AgntError::Other(format!("install apis failed {}", e)))?;
+            .map_err(|e| AgntError::other(format!("install apis failed {}", e)))?;
 
         Ok(Self { manager, server })
     }

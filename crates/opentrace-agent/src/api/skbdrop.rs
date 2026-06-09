@@ -2,56 +2,47 @@
 
 use std::sync::Arc;
 
-use opentrace_bpf::collectors::net::SkbdropConfig;
+use prometheus::Registry;
 use serde::Deserialize;
 
 use super::ApiResource;
 use crate::errors::AgntError;
-use crate::exporter::SkbCollectorBuilder;
+use crate::exporter::{SkbCollectorBuilder, SkbdropRequest};
 use crate::manager::Manager;
-
-#[derive(Debug, Deserialize)]
-pub struct SkbdropRequest {
-    pub any_addr: Option<String>,
-    pub src_addr: Option<String>,
-    pub dst_addr: Option<String>,
-    pub any_port: Option<u16>,
-    pub src_port: Option<u16>,
-    pub dst_port: Option<u16>,
-}
-
-impl From<SkbdropRequest> for SkbdropConfig {
-    fn from(value: SkbdropRequest) -> Self {
-        Self {
-            any_addr: value.any_addr.unwrap_or_default(),
-            src_addr: value.src_addr.unwrap_or_default(),
-            dst_addr: value.dst_addr.unwrap_or_default(),
-            any_port: value.any_port.unwrap_or_default(),
-            src_port: value.src_port.unwrap_or_default(),
-            dst_port: value.dst_port.unwrap_or_default(),
-            ..Default::default()
-        }
-    }
-}
+use crate::sink::SinkConfig;
 
 pub struct SkbdropResource;
 
 impl ApiResource for SkbdropResource {
     type Request = SkbdropRequest;
 
-    fn path_prefix() -> &'static str {
+    fn resource_name() -> &'static str {
         "skbdrop"
     }
 
     async fn start(manager: Arc<Manager>, req: Self::Request) -> Result<(), AgntError> {
-        let config: SkbdropConfig = req.into();
-        let exporter = SkbCollectorBuilder::prepare(config)?;
+        let sink_config: Option<SinkConfig> = if let Some(ref sink_name) = req.sink_name {
+            Some(manager.get_sink(sink_name).await?)
+        } else {
+            None
+        };
+
+        let exporter = if let Some(cfg) = sink_config {
+            match cfg {
+                SinkConfig::Kafka(_) => SkbCollectorBuilder::prepare_kafka(req)?,
+                SinkConfig::PrometheusPGW(_) => {
+                    todo!("PrometheusPGW not yet implemented")
+                }
+            }
+        } else {
+            SkbCollectorBuilder::prepare_prometheus(req)?
+        };
         manager.start("skbdrop", exporter).await?;
         Ok(())
     }
 
-    async fn stop(manager: Arc<Manager>, name: String) -> Result<(), AgntError> {
-        manager.stop(&name).await?;
+    async fn stop(manager: Arc<Manager>) -> Result<(), AgntError> {
+        manager.stop("skbdrop").await?;
         Ok(())
     }
 }

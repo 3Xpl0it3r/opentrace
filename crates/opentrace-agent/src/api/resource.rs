@@ -4,7 +4,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use axum::Router;
-use axum::extract::{Json, Path, State};
+use axum::extract::{Json, State};
 use axum::http::StatusCode;
 use axum::routing::post;
 use serde::de::DeserializeOwned;
@@ -15,17 +15,14 @@ use crate::manager::Manager;
 pub trait ApiResource: Send + Sync + 'static {
     type Request: DeserializeOwned + Send + 'static;
 
-    fn path_prefix() -> &'static str;
+    fn resource_name() -> &'static str;
 
     fn start(
         manager: Arc<Manager>,
         req: Self::Request,
     ) -> impl Future<Output = Result<(), AgntError>> + Send;
 
-    fn stop(
-        manager: Arc<Manager>,
-        name: String,
-    ) -> impl Future<Output = Result<(), AgntError>> + Send;
+    fn stop(manager: Arc<Manager>) -> impl Future<Output = Result<(), AgntError>> + Send;
 }
 
 pub trait ApiRouter {
@@ -34,9 +31,10 @@ pub trait ApiRouter {
 
 impl ApiRouter for Router {
     fn with_resource<T: ApiResource>(self, manager: Arc<Manager>) -> Self {
-        let prefix = T::path_prefix();
-        let start_route = format!("/start/{}", prefix);
-        let stop_route = format!("/stop/{}/{{name}}", prefix);
+        let resource_name = T::resource_name();
+        //  xxx/api/skbdrop/star
+        let start_route = format!("/start/{}", resource_name);
+        let stop_route = format!("/stop/{}", resource_name);
 
         let resource_router = Router::<Arc<Manager>>::new()
             .route(
@@ -53,13 +51,10 @@ impl ApiRouter for Router {
             )
             .route(
                 &stop_route,
-                post(
-                    move |State(manager): State<Arc<Manager>>,
-                          Path(name): Path<String>| async move {
-                        T::stop(manager, name).await?;
-                        Ok::<_, AgntError>(StatusCode::OK)
-                    },
-                ),
+                post(move |State(manager): State<Arc<Manager>>| async move {
+                    T::stop(manager).await?;
+                    Ok::<_, AgntError>(StatusCode::OK)
+                }),
             );
 
         self.merge(resource_router.with_state(manager))

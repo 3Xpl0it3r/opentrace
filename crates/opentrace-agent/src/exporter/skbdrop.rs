@@ -6,10 +6,38 @@ use prometheus::{IntCounterVec, Opts, Registry};
 
 use opentrace_bpf::collectors::net::{SkbdropCollector, SkbdropConfig, SkbdropEvent};
 use opentrace_bpf::sinks::EventSink;
+use serde::Deserialize;
 
 use crate::errors::AgntError;
+use crate::sink::KafkaSink;
 
 use super::Exporter;
+use super::helper::build_exporter;
+
+#[derive(Debug, Deserialize)]
+pub struct SkbdropRequest {
+    pub any_addr: Option<String>,
+    pub src_addr: Option<String>,
+    pub dst_addr: Option<String>,
+    pub any_port: Option<u16>,
+    pub src_port: Option<u16>,
+    pub dst_port: Option<u16>,
+    pub sink_name: Option<String>,
+}
+
+impl From<SkbdropRequest> for SkbdropConfig {
+    fn from(value: SkbdropRequest) -> Self {
+        Self {
+            any_addr: value.any_addr.unwrap_or_default(),
+            src_addr: value.src_addr.unwrap_or_default(),
+            dst_addr: value.dst_addr.unwrap_or_default(),
+            any_port: value.any_port.unwrap_or_default(),
+            src_port: value.src_port.unwrap_or_default(),
+            dst_port: value.dst_port.unwrap_or_default(),
+            ..Default::default()
+        }
+    }
+}
 
 #[derive(Clone)]
 pub(super) struct SkbdropMetrics {
@@ -63,24 +91,33 @@ impl EventSink<SkbdropEvent> for SkbdropMetricSink {
 pub struct SkbCollectorBuilder;
 
 impl SkbCollectorBuilder {
-    pub(crate) fn prepare(config: SkbdropConfig) -> Result<Arc<Exporter>, AgntError> {
+    pub(crate) fn prepare_prometheus(config: SkbdropRequest) -> Result<Arc<Exporter>, AgntError> {
         let registry = Registry::new();
-        let metrics =
-            SkbdropMetrics::new(&registry).map_err(|err| AgntError::Other(err.to_string()))?;
+        let metrics = SkbdropMetrics::new(&registry).map_err(AgntError::other)?;
         let sink = SkbdropMetricSink::new(metrics);
-        let exporter = Exporter::new(registry);
 
-        let builder = move |mut object| {
-            let collector = SkbdropCollector::new(&mut object, config, sink)?;
-            let collector: Box<dyn opentrace_bpf::collectors::Collector> = Box::new(collector);
-            let collector: Box<dyn opentrace_bpf::collectors::Collector + 'static> =
-                // SAFETY: Collector trait is 'static, transmute extends lifetime for storage
-                unsafe { std::mem::transmute(collector) };
-            Ok((object, collector))
-        };
+        build_exporter(Some(registry), move |exporter, probe_registry, interval| {
+            Box::pin(async move {
+                let mut object = opentrace_bpf::open_object_storage();
+                let mut collector = SkbdropCollector::new(&mut object, config.into(), sink)
+                    .map_err(AgntError::other)?;
 
-        exporter.set_builder(Box::new(builder));
+                super::core::run(&exporter, &mut collector, probe_registry, interval).await
+            })
+        })
+    }
 
-        Ok(Arc::new(exporter))
+    pub(crate) fn prepare_kafka(config: SkbdropRequest) -> Result<Arc<Exporter>, AgntError> {
+        let sink = KafkaSink::<SkbdropEvent>::new();
+
+        build_exporter(None, move |exporter, probe_registry, interval| {
+            Box::pin(async move {
+                let mut object = opentrace_bpf::open_object_storage();
+                let mut collector = SkbdropCollector::new(&mut object, config.into(), sink)
+                    .map_err(AgntError::other)?;
+
+                super::core::run(&exporter, &mut collector, probe_registry, interval).await
+            })
+        })
     }
 }

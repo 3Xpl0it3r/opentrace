@@ -22,6 +22,13 @@ pub enum AgntError {
     Other(String),
 }
 
+impl AgntError {
+    /// 将任何 Display 类型包装为 AgntError::Other。
+    pub(crate) fn other(msg: impl std::fmt::Display) -> Self {
+        AgntError::Other(msg.to_string())
+    }
+}
+
 impl IntoResponse for AgntError {
     fn into_response(self) -> Response {
         let (status, message) = match &self {
