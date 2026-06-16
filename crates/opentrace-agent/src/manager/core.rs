@@ -1,6 +1,5 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -10,97 +9,62 @@ use axum::http::{StatusCode, header};
 use axum::response::IntoResponse;
 use axum::routing::get;
 use prometheus::{Encoder, TextEncoder};
-use tokio::sync::RwLock;
 
 use opentrace_bpf::ProbeRegistry;
 
 use crate::errors::AgntError;
-use crate::exporter::{Exporter, ExporterTask};
-use crate::sink::SinkConfig;
+use crate::exporter::{ExporterManager, ExporterRunner, ExporterSpec};
+use crate::sink::{SinkConfig, SinkManager, SinkRecordSender};
 
 const DEFAULT_POLL_INTERVAL: Duration = Duration::from_millis(100);
+const DEFAULT_STOP_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub struct Manager {
-    exporter_tasks: RwLock<HashMap<String, ExporterTask>>,
+    exporter_manager: ExporterManager,
     probe_registry: Arc<ProbeRegistry>,
-    // sink配置信息, 下沉到每个exporter去创建
-    sink_registry: RwLock<HashMap<String, SinkConfig>>,
+    sink_manager: SinkManager,
 }
 
 impl Manager {
     pub fn new(probe_registry: Arc<ProbeRegistry>) -> Self {
         Self {
-            exporter_tasks: RwLock::new(HashMap::default()),
-            sink_registry: RwLock::new(HashMap::default()),
+            exporter_manager: ExporterManager::new(),
+            sink_manager: SinkManager::new(),
             probe_registry,
         }
     }
 
     // start 去创建一个具体的exporter(也就是collector)，然后去spawn一个async函数在里面attach和poll
-    pub async fn start(&self, name: &str, exporter: Arc<Exporter>) -> Result<(), AgntError> {
-        if self.exporter_tasks.read().await.contains_key(name) {
-            return Err(AgntError::AlreadyExists(format!("{} 已经启动了", name)));
-        }
-        let probe_registry = self.probe_registry.clone();
-        let jh = exporter.start(DEFAULT_POLL_INTERVAL, probe_registry)?;
-
-        self.exporter_tasks.write().await.insert(
-            name.to_owned(),
-            ExporterTask {
+    pub async fn start<R>(&self, name: &str, exporter: ExporterSpec<R>) -> Result<(), AgntError>
+    where
+        R: ExporterRunner,
+    {
+        self.exporter_manager
+            .start(
+                name,
                 exporter,
-                handler: jh,
-            },
-        );
-        Ok(())
+                self.probe_registry.clone(),
+                DEFAULT_POLL_INTERVAL,
+            )
+            .await
     }
 
     pub async fn stop_all(&self) -> Result<(), AgntError> {
-        for task in self.exporter_tasks.read().await.values() {
-            task.exporter.stop();
-        }
-        self.exporter_tasks.write().await.clear();
+        self.exporter_manager.stop_all().await;
+        self.sink_manager.stop_all().await;
         Ok(())
     }
 
     pub async fn stop(&self, name: &str) -> Result<(), AgntError> {
-        let task = self.exporter_tasks.read().await.get(name).map(|t| {
-            t.exporter.stop();
-        });
-        if task.is_none() {
-            return Err(AgntError::NotFound(format!("{} has stopped", name)));
-        }
-        self.exporter_tasks.write().await.remove(name);
-        Ok(())
+        self.exporter_manager
+            .stop(name, Instant::now() + DEFAULT_STOP_TIMEOUT)
+            .await
     }
 
     pub async fn wait_terminated(&self, timeout: Duration) -> Result<(), AgntError> {
-        let exporter_tasks: Vec<_> = {
-            let mut tasks = self.exporter_tasks.write().await;
-            tasks.drain().map(|(_, h)| h).collect()
-        };
-
-        if exporter_tasks.is_empty() {
-            return Ok(());
-        }
-
         let deadline = Instant::now() + timeout;
-        for mut task in exporter_tasks {
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            if remaining.is_zero() {
-                task.handler.abort();
-                _ = task.handler.await;
-            } else {
-                let sleep = tokio::time::sleep(remaining);
-                tokio::pin!(sleep);
-                tokio::select! {
-                    _ = &mut task.handler => {}
-                    _ = &mut sleep => {
-                        task.handler.abort();
-                        _ = task.handler.await;
-                    }
-                }
-            }
-        }
+        self.exporter_manager.wait_terminated(deadline).await;
+        self.sink_manager.wait_terminated(deadline).await;
         Ok(())
     }
 
@@ -126,54 +90,47 @@ impl Manager {
             .into_response()
     }
 
-    pub async fn get_sink(&self, sink_name: &str) -> Result<SinkConfig, AgntError> {
-        self.sink_registry
-            .read()
-            .await
-            .get(sink_name)
-            .cloned()
-            .ok_or_else(|| AgntError::NotFound(format!("sink '{sink_name}' not found")))
+    pub async fn get_sink(&self, sink_name: &str) -> Result<SinkRecordSender, AgntError> {
+        self.sink_manager.get_sink(sink_name).await
     }
 
     pub async fn add_sink(&self, name: String, config: SinkConfig) -> Result<(), AgntError> {
-        let mut registry = self.sink_registry.write().await;
-        if registry.contains_key(&name) {
-            return Err(AgntError::AlreadyExists(format!(
-                "sink '{name}' already exists"
-            )));
-        }
-        registry.insert(name, config);
-        Ok(())
+        self.sink_manager.add_sink(name, config).await
     }
 
     pub async fn update_sink(&self, name: &str, config: SinkConfig) -> Result<(), AgntError> {
-        let mut registry = self.sink_registry.write().await;
-        if !registry.contains_key(name) {
-            return Err(AgntError::NotFound(format!("sink '{name}' not found")));
+        if self.sink_is_used(name).await {
+            return Err(AgntError::AlreadyExists(format!(
+                "sink '{name}' is in use by exporter"
+            )));
         }
-        registry.insert(name.to_owned(), config);
-        Ok(())
+
+        self.sink_manager
+            .update_sink(name, config, Instant::now() + DEFAULT_STOP_TIMEOUT)
+            .await
     }
 
     pub async fn remove_sink(&self, name: &str) -> Result<(), AgntError> {
-        let mut registry = self.sink_registry.write().await;
-        registry
-            .remove(name)
-            .ok_or_else(|| AgntError::NotFound(format!("sink '{name}' not found")))?;
-        Ok(())
+        if self.sink_is_used(name).await {
+            return Err(AgntError::AlreadyExists(format!(
+                "sink '{name}' is in use by exporter"
+            )));
+        }
+
+        self.sink_manager
+            .remove_sink(name, Instant::now() + DEFAULT_STOP_TIMEOUT)
+            .await
     }
 
     pub async fn list_sinks(&self) -> Vec<String> {
-        self.sink_registry.read().await.keys().cloned().collect()
+        self.sink_manager.list_sinks().await
+    }
+
+    async fn sink_is_used(&self, name: &str) -> bool {
+        self.exporter_manager.sink_is_used(name).await
     }
 
     async fn encode_all<W: std::io::Write>(&self, w: &mut W) -> Result<(), prometheus::Error> {
-        let encoder = TextEncoder::new();
-        for task in self.exporter_tasks.read().await.values() {
-            if let Some(ref registry) = task.exporter.registry {
-                encoder.encode(&registry.gather(), w)?;
-            }
-        }
-        Ok(())
+        self.exporter_manager.encode_all(w).await
     }
 }

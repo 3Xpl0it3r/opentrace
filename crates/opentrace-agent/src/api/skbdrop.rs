@@ -2,14 +2,10 @@
 
 use std::sync::Arc;
 
-use prometheus::Registry;
-use serde::Deserialize;
-
 use super::ApiResource;
 use crate::errors::AgntError;
-use crate::exporter::{SkbCollectorBuilder, SkbdropRequest};
+use crate::exporter::{SkbdropExporter, SkbdropRequest};
 use crate::manager::Manager;
-use crate::sink::SinkConfig;
 
 pub struct SkbdropResource;
 
@@ -21,23 +17,14 @@ impl ApiResource for SkbdropResource {
     }
 
     async fn start(manager: Arc<Manager>, req: Self::Request) -> Result<(), AgntError> {
-        let sink_config: Option<SinkConfig> = if let Some(ref sink_name) = req.sink_name {
-            Some(manager.get_sink(sink_name).await?)
+        if let Some(sink_name) = req.sink_name.clone() {
+            let sink_tx = manager.get_sink(&sink_name).await?;
+            let exporter = SkbdropExporter::with_sink(req, sink_tx, sink_name)?;
+            manager.start("skbdrop", exporter).await?;
         } else {
-            None
-        };
-
-        let exporter = if let Some(cfg) = sink_config {
-            match cfg {
-                SinkConfig::Kafka(_) => SkbCollectorBuilder::prepare_kafka(req)?,
-                SinkConfig::PrometheusPGW(_) => {
-                    todo!("PrometheusPGW not yet implemented")
-                }
-            }
-        } else {
-            SkbCollectorBuilder::prepare_prometheus(req)?
-        };
-        manager.start("skbdrop", exporter).await?;
+            let exporter = SkbdropExporter::with_prometheus_metrics(req)?;
+            manager.start("skbdrop", exporter).await?;
+        }
         Ok(())
     }
 

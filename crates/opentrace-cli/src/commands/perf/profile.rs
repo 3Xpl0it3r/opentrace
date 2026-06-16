@@ -33,7 +33,7 @@ pub async fn run_as_profile(
     symbolizer_provider.register(&source);
     let symbolizer = symbolizer_provider.get_symbolizer(&source);
 
-    let (sink, mut event_rx) = UnboundedChannelSink::<ProfileEvent, _>::new();
+    let (sink, mut event_rx) = UnboundedChannelSink::<ProfileEvent>::new();
     let mut collector = ProfileCollector::new(object, options.to_config(ctx), sink)?;
     collector.attach_probe(registry)?;
 

@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use axum::extract::{Json, Path, State};
 use axum::http::StatusCode;
-use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
 
 use crate::errors::AgntError;
@@ -21,7 +20,7 @@ pub struct SinkListResponse {
     pub sinks: Vec<String>,
 }
 
-pub async fn add_sink(
+pub async fn add_sink_handler(
     State(manager): State<Arc<Manager>>,
     Path(name): Path<String>,
     Json(req): Json<SinkRequest>,
@@ -30,7 +29,7 @@ pub async fn add_sink(
     Ok(StatusCode::CREATED)
 }
 
-pub async fn update_sink(
+pub async fn update_sink_handler(
     State(manager): State<Arc<Manager>>,
     Path(name): Path<String>,
     Json(req): Json<SinkRequest>,
@@ -39,7 +38,7 @@ pub async fn update_sink(
     Ok(StatusCode::OK)
 }
 
-pub async fn remove_sink(
+pub async fn remove_sink_handler(
     State(manager): State<Arc<Manager>>,
     Path(name): Path<String>,
 ) -> Result<StatusCode, AgntError> {
@@ -47,7 +46,7 @@ pub async fn remove_sink(
     Ok(StatusCode::OK)
 }
 
-pub async fn list_sinks(
+pub async fn list_sinks_handler(
     State(manager): State<Arc<Manager>>,
 ) -> Result<Json<SinkListResponse>, AgntError> {
     let sinks = manager.list_sinks().await;

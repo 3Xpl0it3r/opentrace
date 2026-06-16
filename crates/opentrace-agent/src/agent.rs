@@ -30,7 +30,7 @@ impl OpentraceAgent {
             .map_err(|e| AgntError::other(format!("install metrics apis failed {}", e)))?;
 
         server
-            .nest("/api", crate::manager::install_apis(manager.clone()))
+            .nest("/api", crate::api::install_apis(manager.clone()))
             .map_err(|e| AgntError::other(format!("install apis failed {}", e)))?;
 
         Ok(Self { manager, server })

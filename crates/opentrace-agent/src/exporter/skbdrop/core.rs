@@ -1,18 +1,18 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
-use std::sync::Arc;
-
 use prometheus::{IntCounterVec, Opts, Registry};
 
 use opentrace_bpf::collectors::net::{SkbdropCollector, SkbdropConfig, SkbdropEvent};
 use opentrace_bpf::sinks::EventSink;
 use serde::Deserialize;
+use tokio::sync::mpsc;
 
 use crate::errors::AgntError;
-use crate::sink::KafkaSink;
+use crate::sink::{KafkaRecord, SinkCacheTask, SinkCacher, SinkRecordSender};
 
-use super::Exporter;
-use super::helper::build_exporter;
+use crate::exporter::{ExporterContext, ExporterRunner, ExporterSpec, run_collector};
+
+use super::formatter::SkbdropKafkaFormatter;
 
 #[derive(Debug, Deserialize)]
 pub struct SkbdropRequest {
@@ -88,36 +88,80 @@ impl EventSink<SkbdropEvent> for SkbdropMetricSink {
     }
 }
 
-pub struct SkbCollectorBuilder;
+pub struct SkbdropExporter;
 
-impl SkbCollectorBuilder {
-    pub(crate) fn prepare_prometheus(config: SkbdropRequest) -> Result<Arc<Exporter>, AgntError> {
+impl SkbdropExporter {
+    pub(crate) fn with_prometheus_metrics(
+        config: SkbdropRequest,
+    ) -> Result<ExporterSpec<impl ExporterRunner>, AgntError> {
         let registry = Registry::new();
         let metrics = SkbdropMetrics::new(&registry).map_err(AgntError::other)?;
         let sink = SkbdropMetricSink::new(metrics);
 
-        build_exporter(Some(registry), move |exporter, probe_registry, interval| {
-            Box::pin(async move {
+        Ok(ExporterSpec::new(
+            Some(registry),
+            None,
+            move |context: ExporterContext| async move {
                 let mut object = opentrace_bpf::open_object_storage();
                 let mut collector = SkbdropCollector::new(&mut object, config.into(), sink)
                     .map_err(AgntError::other)?;
 
-                super::core::run(&exporter, &mut collector, probe_registry, interval).await
-            })
-        })
+                run_collector(
+                    &mut collector,
+                    context.probe_registry,
+                    context.interval,
+                    context.cancel,
+                )
+                .await
+            },
+        ))
     }
 
-    pub(crate) fn prepare_kafka(config: SkbdropRequest) -> Result<Arc<Exporter>, AgntError> {
-        let sink = KafkaSink::<SkbdropEvent>::new();
-
-        build_exporter(None, move |exporter, probe_registry, interval| {
-            Box::pin(async move {
-                let mut object = opentrace_bpf::open_object_storage();
-                let mut collector = SkbdropCollector::new(&mut object, config.into(), sink)
-                    .map_err(AgntError::other)?;
-
-                super::core::run(&exporter, &mut collector, probe_registry, interval).await
-            })
-        })
+    pub(crate) fn with_sink(
+        config: SkbdropRequest,
+        sink_record_sender: SinkRecordSender,
+        sink_name: String,
+    ) -> Result<ExporterSpec<impl ExporterRunner>, AgntError> {
+        match sink_record_sender {
+            SinkRecordSender::Kafka(kafka_sink) => Ok(ExporterSpec::new(
+                None,
+                Some(sink_name),
+                move |context: ExporterContext| {
+                    run_kafka_sink_exporter(config, kafka_sink, context)
+                },
+            )),
+            SinkRecordSender::PrometheusPushGateway(_) => Err(AgntError::BadRequest(
+                "PrometheusPGW sink not yet implemented".to_owned(),
+            )),
+        }
     }
+}
+
+async fn run_kafka_sink_exporter(
+    config: SkbdropRequest,
+    kafka_sink: mpsc::Sender<KafkaRecord>,
+    context: ExporterContext,
+) -> Result<(), AgntError> {
+    let ExporterContext {
+        probe_registry,
+        interval,
+        cancel,
+    } = context;
+    let cache_cancel = cancel.child_token();
+    let (cacher, cache_sink) = SinkCacher::new(kafka_sink, SkbdropKafkaFormatter);
+    let task = SinkCacheTask::new(cacher, cache_cancel);
+
+    let result = async {
+        let mut object = opentrace_bpf::open_object_storage();
+        let mut collector = SkbdropCollector::new(&mut object, config.into(), cache_sink)
+            .map_err(AgntError::other)?;
+
+        run_collector(&mut collector, probe_registry, interval, cancel.clone()).await
+    }
+    .await;
+    cancel.cancel();
+
+    task.stop().await;
+
+    result
 }

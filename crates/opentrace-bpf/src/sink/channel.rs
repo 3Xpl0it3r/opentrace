@@ -1,46 +1,44 @@
 // Copyright 2026 opentrace Project Authors. Licensed under Apache-2.0.
 
-use std::marker::PhantomData;
-
 use super::EventSink;
 
-pub struct UnboundedChannelSink<T, E: Into<T>> {
-    event_tx: tokio::sync::mpsc::UnboundedSender<T>,
-    _phantom: PhantomData<E>,
+pub struct UnboundedChannelSink<E> {
+    event_tx: tokio::sync::mpsc::UnboundedSender<E>,
 }
 
-impl<T, E: Into<T>> UnboundedChannelSink<T, E> {
-    pub fn new() -> (Self, tokio::sync::mpsc::UnboundedReceiver<T>) {
-        let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel::<T>();
-        (
-            Self {
-                event_tx,
-                _phantom: PhantomData,
-            },
-            event_rx,
-        )
+impl<E> UnboundedChannelSink<E> {
+    pub fn new() -> (Self, tokio::sync::mpsc::UnboundedReceiver<E>) {
+        let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel::<E>();
+        (Self { event_tx }, event_rx)
+    }
+}
+
+impl<E> EventSink<E> for UnboundedChannelSink<E> {
+    fn dispatch(&mut self, event: E) {
+        let _ = self.event_tx.send(event);
     }
 }
 
 pub struct BoundedChannelSink<E> {
-    _event_tx: tokio::sync::mpsc::Sender<E>,
+    event_tx: tokio::sync::mpsc::Sender<E>,
 }
 
 impl<E> BoundedChannelSink<E> {
     pub fn new(capacity: usize) -> (Self, tokio::sync::mpsc::Receiver<E>) {
         let (event_tx, event_rx) = tokio::sync::mpsc::channel::<E>(capacity);
-        (
-            Self {
-                _event_tx: event_tx,
-            },
-            event_rx,
-        )
+        (Self { event_tx }, event_rx)
     }
 }
 
-impl<T, E: Into<T>> EventSink<E> for UnboundedChannelSink<T, E> {
+/* impl<T, E: Into<T>> EventSink<E> for UnboundedChannelSink<T, E> {
     fn dispatch(&mut self, event: E) {
         let _ = self.event_tx.send(event.into());
+    }
+} */
+
+impl<E> EventSink<E> for BoundedChannelSink<E> {
+    fn dispatch(&mut self, event: E) {
+        let _ = self.event_tx.try_send(event);
     }
 }
 
@@ -66,6 +64,15 @@ mod tests {
         let (_sink, rx) = BoundedChannelSink::<u32>::new(8);
 
         assert_eq!(rx.max_capacity(), 8);
+    }
+
+    #[test]
+    fn bounded_channel_sends_events() {
+        let (mut sink, mut rx) = BoundedChannelSink::<u32>::new(8);
+
+        sink.dispatch(42);
+
+        assert_eq!(block_on(rx.recv()).unwrap(), 42);
     }
 
     #[test]

@@ -125,7 +125,7 @@ fn run_skbdrop_blocking(
     let symbolizer = provider.get_symbolizer(&Source::Kernel);
     let formatter = SkbdropEventDefaultFormatter::new(symbolizer);
 
-    let (sink, rx) = UnboundedChannelSink::<SkbdropEvent, SkbdropEvent>::new();
+    let (sink, rx) = UnboundedChannelSink::<SkbdropEvent>::new();
     let mut collector = SkbdropCollector::new(&mut open_project, params.into_config()?, sink)
         .map_err(MCPError::from)?;
     collector

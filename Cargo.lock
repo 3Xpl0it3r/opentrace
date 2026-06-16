@@ -1307,6 +1307,11 @@ dependencies = [
 [[package]]
 name = "opentrace-server"
 version = "0.0.1"
+dependencies = [
+ "opentrace-kit",
+ "thiserror 2.0.18",
+ "tokio",
+]
 
 [[package]]
 name = "parking_lot"

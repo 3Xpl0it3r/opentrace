@@ -82,7 +82,7 @@ pub(crate) async fn tool_handler(
     probe_registry: Arc<ProbeRegistry>,
 ) -> Result<CallToolResult, ErrorData> {
     let mut object = opentrace_bpf::open_object_storage();
-    let (sink, event_rx) = UnboundedChannelSink::<ProfileEvent, _>::new();
+    let (sink, event_rx) = UnboundedChannelSink::<ProfileEvent>::new();
     let mut collector = ProfileCollector::new(&mut object, params.to_config(), sink)
         .map_err(MCPError::from)
         .map_err(ErrorData::from)?;

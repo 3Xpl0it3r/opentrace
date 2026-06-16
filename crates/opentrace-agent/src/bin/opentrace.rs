@@ -5,7 +5,6 @@ use opentrace_agent::agent::OpentraceAgent;
 
 #[tokio::main]
 async fn main() {
-    println!("this is debug");
     match OpentraceAgent::new(GenericHttpServer::default()) {
         Ok(agent) => agent.run().await,
         Err(e) => {
