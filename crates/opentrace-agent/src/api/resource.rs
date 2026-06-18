@@ -6,6 +6,7 @@ use std::sync::Arc;
 use axum::Router;
 use axum::extract::{Json, State};
 use axum::http::StatusCode;
+use axum::response::Response;
 use axum::routing::post;
 use serde::de::DeserializeOwned;
 
@@ -20,7 +21,7 @@ pub trait ApiResource: Send + Sync + 'static {
     fn start(
         manager: Arc<Manager>,
         req: Self::Request,
-    ) -> impl Future<Output = Result<(), AgntError>> + Send;
+    ) -> impl Future<Output = Result<Response, AgntError>> + Send;
 
     fn stop(manager: Arc<Manager>) -> impl Future<Output = Result<(), AgntError>> + Send;
 }
@@ -44,8 +45,7 @@ impl ApiRouter for Router {
                           Json(req): Json<serde_json::Value>| async move {
                         let req: T::Request = serde_json::from_value(req)
                             .map_err(|e| AgntError::BadRequest(format!("invalid request: {e}")))?;
-                        T::start(manager, req).await?;
-                        Ok::<_, AgntError>(StatusCode::CREATED)
+                        T::start(manager, req).await
                     },
                 ),
             )

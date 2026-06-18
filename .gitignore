@@ -38,3 +38,9 @@ docs/node_modules
 **/fuzz/corpus/
 **/fuzz/coverage/
 
+
+
+crates/opentrace-server/frontend/node_modules/
+**/node_modules/
+crates/opentrace-server/static/dist/
+**/static/dist/

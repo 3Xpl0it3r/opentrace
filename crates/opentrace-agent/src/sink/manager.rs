@@ -64,7 +64,8 @@ impl SinkManager {
             )));
         }
 
-        registry.insert(name, SinkTask::run(config));
+        let sink_task = SinkTask::run(config)?;
+        registry.insert(name, sink_task);
         Ok(())
     }
 
@@ -74,6 +75,15 @@ impl SinkManager {
         config: SinkConfig,
         deadline: Instant,
     ) -> Result<(), AgntError> {
+        {
+            let registry = self.registry.read().await;
+            if !registry.contains_key(name) {
+                return Err(AgntError::NotFound(format!("sink '{name}' not found")));
+            }
+        }
+
+        let new_runtime = SinkTask::run(config)?;
+
         let runtime = self
             .registry
             .write()
@@ -85,7 +95,7 @@ impl SinkManager {
         self.registry
             .write()
             .await
-            .insert(name.to_owned(), SinkTask::run(config));
+            .insert(name.to_owned(), new_runtime);
         Ok(())
     }
 
@@ -153,28 +163,27 @@ impl SinkManager {
 }
 
 impl SinkTask {
-    fn run(config: SinkConfig) -> Self {
+    fn run(config: SinkConfig) -> Result<Self, AgntError> {
         let cancel = CancellationToken::new();
         let (tx, handler) = match &config {
             SinkConfig::Kafka(kafka_config) => {
                 let (tx, rx) = mpsc::channel::<KafkaRecord>(1024);
-                let handler =
-                    tokio::spawn(KafkaSink::new(kafka_config.clone()).run(rx, cancel.clone()));
+                let sink = KafkaSink::new(kafka_config.clone())?;
+                let handler = tokio::spawn(sink.run(rx, cancel.clone()));
                 (SinkRecordSender::Kafka(tx), handler)
             }
             SinkConfig::PrometheusPGW(prometheus_config) => {
                 let (tx, rx) = mpsc::channel::<PrometheusRecord>(1024);
-                let handler = tokio::spawn(
-                    PrometheusSink::new(prometheus_config.clone()).run(rx, cancel.clone()),
-                );
+                let sink = PrometheusSink::new(prometheus_config.clone())?;
+                let handler = tokio::spawn(sink.run(rx, cancel.clone()));
                 (SinkRecordSender::PrometheusPushGateway(tx), handler)
             }
         };
-        Self {
+        Ok(Self {
             config,
             tx,
             cancel,
             handler,
-        }
+        })
     }
 }

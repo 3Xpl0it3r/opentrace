@@ -4,15 +4,16 @@ use prometheus::{IntCounterVec, Opts, Registry};
 
 use opentrace_bpf::collectors::net::{SkbdropCollector, SkbdropConfig, SkbdropEvent};
 use opentrace_bpf::sinks::EventSink;
+use opentrace_bpf::types::net::{AddrV4, AddrV6};
 use serde::Deserialize;
 use tokio::sync::mpsc;
 
 use crate::errors::AgntError;
-use crate::sink::{KafkaRecord, SinkCacheTask, SinkCacher, SinkRecordSender};
+use crate::sink::{KafkaRecord, LocalSinkCacheTask, SinkRecordSender, SseRecord};
 
 use crate::exporter::{ExporterContext, ExporterRunner, ExporterSpec, run_collector};
 
-use super::formatter::SkbdropKafkaFormatter;
+use super::formatter::{SkbdropKafkaFormatter, SkbdropSseFormatter};
 
 #[derive(Debug, Deserialize)]
 pub struct SkbdropRequest {
@@ -23,6 +24,7 @@ pub struct SkbdropRequest {
     pub src_port: Option<u16>,
     pub dst_port: Option<u16>,
     pub sink_name: Option<String>,
+    pub watch: Option<bool>,
 }
 
 impl From<SkbdropRequest> for SkbdropConfig {
@@ -48,27 +50,28 @@ impl SkbdropMetrics {
     pub(super) fn new(registry: &Registry) -> Result<SkbdropMetrics, prometheus::Error> {
         let drops_total = IntCounterVec::new(
             Opts::new(
-                "opentrace_skbdrop_drops_total",
-                "Total number of skb drop events observed by opentrace.",
+                "skbdrop",
+                "Total number of skb drop events observed by skbdrop.",
             ),
-            &["source", "ip_version", "l4_proto", "drop_reason"],
+            &["reason", "ip"],
         )?;
         registry.register(Box::new(drops_total.clone()))?;
         Ok(SkbdropMetrics { drops_total })
     }
 
     fn observe(&self, event: &SkbdropEvent) {
-        let ip_version = event.l3_info.ip_version.to_string();
-        let l4_proto = event.l3_info.l4_proto.to_string();
-        let drop_reason = event.drop_reason.to_string();
+        let ip = event_source_ip(event);
         self.drops_total
-            .with_label_values(&[
-                event.drop_source_str(),
-                ip_version.as_str(),
-                l4_proto.as_str(),
-                drop_reason.as_str(),
-            ])
+            .with_label_values(&[event.drop_source_str(), ip.as_str()])
             .inc();
+    }
+}
+
+fn event_source_ip(event: &SkbdropEvent) -> String {
+    match event.l3_info.ip_version {
+        4 => AddrV4::from(event.l3_info.saddr).to_string(),
+        6 => AddrV6::from(event.l3_info.saddr).to_string(),
+        _ => "0.0.0.0".to_string(),
     }
 }
 
@@ -135,6 +138,15 @@ impl SkbdropExporter {
             )),
         }
     }
+
+    pub(crate) fn with_sse_sink(
+        config: SkbdropRequest,
+        sse_sink: mpsc::Sender<SseRecord>,
+    ) -> ExporterSpec<impl ExporterRunner> {
+        ExporterSpec::new(None, None, move |context: ExporterContext| {
+            run_sse_sink_exporter(config, sse_sink, context)
+        })
+    }
 }
 
 async fn run_kafka_sink_exporter(
@@ -148,8 +160,8 @@ async fn run_kafka_sink_exporter(
         cancel,
     } = context;
     let cache_cancel = cancel.child_token();
-    let (cacher, cache_sink) = SinkCacher::new(kafka_sink, SkbdropKafkaFormatter);
-    let task = SinkCacheTask::new(cacher, cache_cancel);
+    let (task, cache_sink) =
+        LocalSinkCacheTask::new(kafka_sink, SkbdropKafkaFormatter::new, cache_cancel);
 
     let result = async {
         let mut object = opentrace_bpf::open_object_storage();
@@ -164,4 +176,82 @@ async fn run_kafka_sink_exporter(
     task.stop().await;
 
     result
+}
+
+async fn run_sse_sink_exporter(
+    config: SkbdropRequest,
+    sse_sink: mpsc::Sender<SseRecord>,
+    context: ExporterContext,
+) -> Result<(), AgntError> {
+    let ExporterContext {
+        probe_registry,
+        interval,
+        cancel,
+    } = context;
+    let cache_cancel = cancel.child_token();
+    let (task, cache_sink) =
+        LocalSinkCacheTask::new(sse_sink, SkbdropSseFormatter::new, cache_cancel);
+
+    let result = async {
+        let mut object = opentrace_bpf::open_object_storage();
+        let mut collector = SkbdropCollector::new(&mut object, config.into(), cache_sink)
+            .map_err(AgntError::other)?;
+
+        run_collector(&mut collector, probe_registry, interval, cancel.clone()).await
+    }
+    .await;
+    cancel.cancel();
+
+    task.stop().await;
+
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use opentrace_bpf::types::net::{Addr, L2Info, L3Info, L4Info};
+    use prometheus::{Encoder, TextEncoder};
+
+    fn skbdrop_event(src_ip: [u8; 4]) -> SkbdropEvent {
+        SkbdropEvent {
+            l2_info: L2Info { eth_proto: 0 },
+            l3_info: L3Info {
+                saddr: Addr {
+                    v4addr: u32::from_ne_bytes(src_ip),
+                },
+                daddr: Addr { v4addr: 0 },
+                tot_len: 0,
+                ip_version: 4,
+                l4_proto: 6,
+            },
+            l4_info: L4Info {
+                sport: 0,
+                dport: 0,
+                tcpflags: 0,
+            },
+            stack_size: 0,
+            stack: [0; 16],
+            drop_reason: 0,
+            drop_source: 1,
+        }
+    }
+
+    #[test]
+    fn skbdrop_metric_uses_reason_ip_and_count() {
+        let registry = Registry::new();
+        let metrics = SkbdropMetrics::new(&registry).unwrap();
+        let event = skbdrop_event([10, 0, 0, 1]);
+
+        metrics.observe(&event);
+        metrics.observe(&event);
+
+        let mut output = Vec::new();
+        TextEncoder::new()
+            .encode(&registry.gather(), &mut output)
+            .unwrap();
+        let output = String::from_utf8(output).unwrap();
+
+        assert!(output.contains("skbdrop{ip=\"10.0.0.1\",reason=\"kfree_skb\"} 2"));
+    }
 }

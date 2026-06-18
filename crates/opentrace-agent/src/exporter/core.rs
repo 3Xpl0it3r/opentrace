@@ -78,4 +78,8 @@ impl Task {
     pub(crate) fn sink_name(&self) -> Option<&str> {
         self.sink_name.as_deref()
     }
+
+    pub(crate) fn is_running(&self) -> bool {
+        !self.handler.is_finished()
+    }
 }

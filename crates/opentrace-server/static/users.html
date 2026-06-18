@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenTrace — Users</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+            <div class="topbar-brand">OpenTrace<small>Observability Platform</small></div>
+        </div>
+        <div class="topbar-nav">
+            <a href="/">Dashboard</a>
+            <a href="/agents.html">Agents</a>
+            <a href="/sinks.html">Sinks</a>
+            <a href="/users.html" class="active">Users</a>
+        </div>
+        <div class="topbar-right">
+            <div class="live-indicator"><span class="live-dot"></span>LIVE</div>
+            <div class="topbar-time" id="clock">--:--:--</div>
+            <button class="theme-btn" onclick="toggleTheme()" aria-label="切换主题">
+                <svg id="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+                <svg id="icon-sun" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            </button>
+            <div class="user-menu" id="user-menu">
+                <button class="user-avatar" id="user-avatar" onclick="toggleDropdown()" aria-haspopup="true" aria-expanded="false" aria-label="用户菜单">A</button>
+                <div class="user-dropdown" id="user-dropdown" role="menu">
+                    <div class="user-dropdown-header">
+                        <div class="user-dropdown-avatar" id="dd-av">A</div>
+                        <div class="user-dropdown-info">
+                            <div class="user-dropdown-name" id="dd-name">Admin</div>
+                            <div class="user-dropdown-role" id="dd-role">管理员</div>
+                        </div>
+                    </div>
+                    <div class="user-dropdown-divider"></div>
+                    <div class="user-dropdown-item danger" role="menuitem" tabindex="0" onclick="logout()" onkeydown="if(event.key==='Enter')logout()">
+                        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                        退出登录
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="page-header">
+            <div>
+                <h1>Users</h1>
+                <p>管理系统用户账户，创建、删除用户并分配角色权限</p>
+            </div>
+            <button class="btn btn-primary" onclick="openCreateModal()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                添加用户
+            </button>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>用户名</th>
+                        <th>角色</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="usersList"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- ═══ Create Modal ═══ -->
+    <div class="modal-overlay" id="createModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>添加用户</h3>
+                <button class="modal-close" onclick="closeCreateModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="inline-error" id="create-error"></div>
+                <div class="form-group">
+                    <label class="form-label" for="newUsername">用户名 *</label>
+                    <input class="form-input" id="newUsername" placeholder="请输入用户名" required>
+                    <div class="form-error" id="err-username">请输入用户名</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="newPassword">密码 *</label>
+                    <input class="form-input" type="password" id="newPassword" placeholder="请输入密码" required>
+                    <div class="form-error" id="err-password">请输入密码</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="newRole">角色</label>
+                    <select class="form-select" id="newRole">
+                        <option value="viewer">Viewer（只读）</option>
+                        <option value="admin">Admin（管理员）</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeCreateModal()">取消</button>
+                <button class="btn btn-primary" onclick="submitCreate()" id="btn-create">创建用户</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Delete Confirm Modal ═══ -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal" style="width:420px">
+            <div class="modal-header">
+                <h3>确认删除</h3>
+                <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--text-secondary);font-size:13px;line-height:1.6">
+                    确定要删除用户 <strong id="del-username" style="color:var(--text)"></strong> 吗？
+                    <br><br>
+                    此操作不可撤销。
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeDeleteModal()">取消</button>
+                <button class="btn btn-danger" id="del-confirm">删除</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        if (!checkAuth()) location.href = '/login.html';
+
+        /* ═══ Theme ═══ */
+        var theme = localStorage.getItem('ot-theme') || 'dark';
+        function applyTheme() {
+            document.documentElement.className = theme;
+            var moon = document.getElementById('icon-moon');
+            var sun = document.getElementById('icon-sun');
+            if (moon && sun) {
+                moon.style.display = theme === 'dark' ? '' : 'none';
+                sun.style.display = theme === 'light' ? '' : 'none';
+            }
+        }
+        function toggleTheme() {
+            theme = theme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('ot-theme', theme);
+            applyTheme();
+        }
+        applyTheme();
+
+        /* ═══ User Menu ═══ */
+        var user = null;
+        try { user = JSON.parse(localStorage.getItem('ot-user')); } catch(e) {}
+        if (user) {
+            var av = user.avatar || user.username.charAt(0).toUpperCase();
+            document.getElementById('user-avatar').textContent = av;
+            document.getElementById('dd-av').textContent = av;
+            document.getElementById('dd-name').textContent = user.username;
+            document.getElementById('dd-role').textContent = user.role === 'admin' ? '管理员' : '用户';
+        }
+
+        function toggleDropdown() {
+            var dd = document.getElementById('user-dropdown');
+            var btn = document.getElementById('user-avatar');
+            var isOpen = dd.classList.toggle('show');
+            btn.setAttribute('aria-expanded', isOpen);
+        }
+
+        function logout() {
+            localStorage.removeItem('ot-user');
+            location.href = '/login.html';
+        }
+
+        document.addEventListener('click', function(e) {
+            var m = document.getElementById('user-menu');
+            if (m && !m.contains(e.target)) {
+                document.getElementById('user-dropdown').classList.remove('show');
+                document.getElementById('user-avatar').setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        /* ═══ Clock ═══ */
+        function updateClock() {
+            document.getElementById('clock').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        /* ═══ State ═══ */
+        var deleteTargetId = null;
+
+        /* ═══ Load Users ═══ */
+        async function loadUsers() {
+            try {
+                const users = await api.listUsers();
+                const tbody = document.getElementById('usersList');
+                
+                if (!users || users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-secondary);padding:40px">暂无用户</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = users.map(user => `
+                    <tr>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:10px">
+                                <div class="user-avatar" style="width:28px;height:28px;font-size:12px">${user.username.charAt(0).toUpperCase()}</div>
+                                <span style="font-weight:600">${user.username}</span>
+                            </div>
+                        </td>
+                        <td><span class="status-pill ${user.role === 'admin' ? 'online' : 'degraded'}">${user.role === 'admin' ? '管理员' : '只读'}</span></td>
+                        <td><span style="font-family:var(--mono);font-size:12px;color:var(--text-secondary)">${user.created_at || '—'}</span></td>
+                        <td class="actions-cell">
+                            ${user.username !== 'admin' ? 
+                                `<button class="btn-sm del" onclick="openDeleteModal(${user.id}, '${user.username}')">删除</button>` : 
+                                '<span style="color:var(--text-muted);font-size:12px">内置账户</span>'
+                            }
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error('Failed to load users:', err);
+            }
+        }
+
+        /* ═══ Create Modal ═══ */
+        function openCreateModal() {
+            lastFocusedEl = document.activeElement;
+            document.getElementById('createModal').classList.add('show');
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('newRole').value = 'viewer';
+            clearErrors();
+            setTimeout(function() { document.getElementById('newUsername').focus(); }, 50);
+        }
+
+        function closeCreateModal() {
+            document.getElementById('createModal').classList.remove('show');
+            if (lastFocusedEl) { lastFocusedEl.focus(); lastFocusedEl = null; }
+        }
+
+        function clearErrors() {
+            document.querySelectorAll('.form-error').forEach(function(el) { el.classList.remove('show'); });
+            document.querySelectorAll('.form-input.error').forEach(function(el) { el.classList.remove('error'); });
+            var ie = document.getElementById('create-error');
+            if (ie) ie.classList.remove('show');
+        }
+
+        function showFieldError(id) {
+            var input = document.getElementById(id);
+            var err = document.getElementById('err-' + id.replace('new', '').toLowerCase());
+            if (input) input.classList.add('error');
+            if (err) err.classList.add('show');
+        }
+
+        async function submitCreate() {
+            clearErrors();
+            var username = document.getElementById('newUsername').value.trim();
+            var password = document.getElementById('newPassword').value.trim();
+            var role = document.getElementById('newRole').value;
+            var hasError = false;
+
+            if (!username) { showFieldError('newUsername'); hasError = true; }
+            if (!password) { showFieldError('newPassword'); hasError = true; }
+
+            if (hasError) {
+                var ie = document.getElementById('create-error');
+                ie.textContent = '请填写所有必填字段';
+                ie.classList.add('show');
+                if (!username) document.getElementById('newUsername').focus();
+                else document.getElementById('newPassword').focus();
+                return;
+            }
+
+            var btn = document.getElementById('btn-create');
+            btn.textContent = '创建中...';
+            btn.disabled = true;
+
+            try {
+                await api.createUser({ username, password, role });
+                closeCreateModal();
+                loadUsers();
+            } catch (err) {
+                var ie = document.getElementById('create-error');
+                ie.textContent = '创建失败: ' + err.message;
+                ie.classList.add('show');
+            } finally {
+                btn.textContent = '创建用户';
+                btn.disabled = false;
+            }
+        }
+
+        /* ═══ Delete Modal ═══ */
+        function openDeleteModal(id, username) {
+            deleteTargetId = id;
+            lastFocusedEl = document.activeElement;
+            document.getElementById('del-username').textContent = username;
+            document.getElementById('deleteModal').classList.add('show');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('show');
+            deleteTargetId = null;
+            if (lastFocusedEl) { lastFocusedEl.focus(); lastFocusedEl = null; }
+        }
+
+        document.getElementById('del-confirm').onclick = async function() {
+            if (!deleteTargetId) return;
+            var btn = document.getElementById('del-confirm');
+            btn.textContent = '删除中...';
+            btn.disabled = true;
+            try {
+                await api.deleteUser(deleteTargetId);
+                closeDeleteModal();
+                loadUsers();
+            } catch (err) {
+                alert('删除失败: ' + err.message);
+            } finally {
+                btn.textContent = '删除';
+                btn.disabled = false;
+            }
+        };
+
+        /* ═══ Global Events ═══ */
+        var lastFocusedEl = null;
+
+        document.querySelectorAll('.modal-overlay').forEach(function(el) {
+            el.addEventListener('click', function(e) {
+                if (e.target === el) {
+                    el.classList.remove('show');
+                }
+            });
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-overlay.show').forEach(function(el) {
+                    el.classList.remove('show');
+                });
+            }
+            // Focus trap
+            var openModal = document.querySelector('.modal-overlay.show .modal');
+            if (openModal) {
+                var focusable = openModal.querySelectorAll('input,select,button,[tabindex]:not([tabindex="-1"])');
+                if (!focusable.length) return;
+                var first = focusable[0], last = focusable[focusable.length - 1];
+                if (e.key === 'Tab') {
+                    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+                }
+            }
+        });
+
+        /* ═══ Init ═══ */
+        loadUsers();
+    </script>
+</body>
+</html>

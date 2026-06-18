@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenTrace — Agents</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#08080B;--bg-surface:#0C0C10;--bg-panel:#101014;--bg-elevated:#161620;--bg-hover:#1C1C28;--border:#1A1A24;--border-light:#2C2C3A;--text:#F0F0F5;--text-secondary:#9CA3AF;--text-muted:#5C6370;--cyan:#00D4FF;--cyan-50:rgba(0,212,255,.05);--cyan-100:rgba(0,212,255,.10);--cyan-glow:0 0 24px rgba(0,212,255,.12);--green:#22C55E;--green-bg:rgba(34,197,94,.10);--yellow:#F59E0B;--yellow-bg:rgba(245,158,11,.10);--red:#EF4444;--red-bg:rgba(239,68,68,.10);--font:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;--radius:10px;--radius-sm:6px;--radius-pill:100px;--gradient-bar:linear-gradient(90deg,transparent,rgba(0,212,255,.15),transparent)}
+html.light{--bg:#F5F5F7;--bg-surface:#FFFFFF;--bg-panel:#FFFFFF;--bg-elevated:#F0F0F2;--bg-hover:#E8E8EC;--border:#E0E0E4;--border-light:#C8C8CE;--text:#111111;--text-secondary:#6B7280;--text-muted:#9CA3AF;--cyan-50:rgba(0,140,200,.05);--cyan-100:rgba(0,140,200,.10);--cyan-glow:0 0 16px rgba(0,140,200,.10);--green:#16A34A;--green-bg:rgba(22,163,74,.08);--yellow:#D97706;--yellow-bg:rgba(217,119,6,.08);--red:#DC2626;--red-bg:rgba(220,38,38,.08);--gradient-bar:linear-gradient(90deg,transparent,rgba(0,140,200,.12),transparent)}
+html{font-size:14px;-webkit-font-smoothing:antialiased}body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh;}a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+.topbar{height:56px;background:var(--bg-surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;position:sticky;top:0;z-index:100;}
+.topbar-left{display:flex;align-items:center;gap:10px;margin-right:40px}
+.topbar-logo{width:28px;height:28px;background:linear-gradient(135deg,var(--cyan),#0090B3);border-radius:7px;display:flex;align-items:center;justify-content:center;box-shadow:var(--cyan-glow)}
+.topbar-logo svg{width:16px;height:16px;fill:white}
+.topbar-brand{font-size:14px;font-weight:700}
+.topbar-brand small{display:block;font-size:10px;font-weight:400;color:var(--text-muted)}
+.topbar-nav{display:flex;gap:2px;flex:1}
+.topbar-nav a{padding:8px 16px;font-size:13px;font-weight:500;color:var(--text-secondary);text-decoration:none;border-radius:var(--radius-sm);transition:all .15s;position:relative}
+.topbar-nav a:hover{color:var(--text);background:var(--bg-hover)}
+.topbar-nav a.active{color:var(--cyan);background:var(--cyan-50)}
+.topbar-nav a.active::after{content:'';position:absolute;bottom:-1px;left:12px;right:12px;height:2px;background:var(--cyan)}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.topbar-time{font-family:var(--mono);font-size:12px;color:var(--text-muted)}
+.live-indicator{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--green);font-weight:500}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.theme-btn{width:34px;height:34px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-panel);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-50)}
+.theme-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.user-avatar{width:34px;height:34px;border-radius:var(--radius-sm);background:var(--cyan);color:#000;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;border:1px solid transparent}
+.user-avatar:hover{box-shadow:var(--cyan-glow);border-color:var(--cyan)}
+.user-menu{position:relative}
+.user-dropdown{display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:200;overflow:hidden}
+.user-dropdown.show{display:block}
+.user-dropdown-hd{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.user-dropdown-av{width:36px;height:36px;border-radius:var(--radius-sm);background:var(--cyan);color:#000;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center}
+.user-dropdown-info{flex:1}
+.user-dropdown-name{font-size:13px;font-weight:600}
+.user-dropdown-role{font-size:11px;color:var(--text-muted)}
+.user-dropdown-item{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;color:var(--text-secondary);cursor:pointer;transition:all .15s}
+.user-dropdown-item:hover{background:var(--bg-hover);color:var(--text)}
+.user-dropdown-item svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.user-dropdown-item.danger{color:var(--red)}
+.user-dropdown-item.danger:hover{background:var(--red-bg)}
+.user-dropdown-divider{height:1px;background:var(--border);margin:4px 0}
+
+.content{max-width:1440px;margin:0 auto;padding:28px 32px 60px}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px}
+.page-header h1{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.page-header p{font-size:13px;color:var(--text-secondary);margin-top:4px}
+
+.btn{padding:9px 20px;font-size:13px;font-weight:600;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;font-family:var(--font);border:none;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--cyan);color:#000}
+.btn-primary:hover{background:#33DDFF;box-shadow:var(--cyan-glow)}
+.btn-primary:active{transform:scale(.97)}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-secondary);font-family:var(--font)}
+.btn-ghost:hover{border-color:var(--border-light);color:var(--text)}
+.btn-ghost:active{transform:scale(.97)}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.btn-danger:hover{background:rgba(239,68,68,.18)}
+.btn-danger:active{transform:scale(.97)}
+
+.toolbar{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.search-box{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px;font-size:13px;color:var(--text);font-family:var(--font);width:260px;transition:border-color .15s;outline:none}
+.search-box:focus{border-color:var(--cyan)}
+.search-box::placeholder{color:var(--text-muted)}
+.filter-btn{padding:7px 14px;font-size:12px;font-weight:500;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);cursor:pointer;transition:all .15s;font-family:var(--font)}
+.filter-btn:hover{border-color:var(--border-light);color:var(--text)}
+.filter-btn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-50)}
+.tag-chip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:var(--radius-pill);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+.tag-chip.active{background:var(--cyan-100);color:var(--cyan);border:1px solid rgba(0,212,255,.25)}
+.tag-chip:not(.active){background:var(--bg-surface);color:var(--text-muted);border:1px solid var(--border)}
+.tag-chip:not(.active):hover{border-color:var(--border-light);color:var(--text-secondary)}
+.toolbar-sep{width:1px;height:20px;background:var(--border)}
+
+.group-section{margin-bottom:32px}
+.group-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.group-header h3{font-size:15px;font-weight:600}
+.group-count{font-family:var(--mono);font-size:12px;color:var(--text-muted);background:var(--bg-surface);padding:2px 8px;border-radius:var(--radius-pill)}
+.group-online{font-size:12px;color:var(--green);font-weight:500;margin-left:auto}
+
+.agent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.agent-card{background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;transition:all .2s;cursor:pointer;position:relative;overflow:hidden}
+.agent-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:var(--gradient-bar)}
+.agent-card:hover{border-color:var(--cyan);box-shadow:var(--cyan-glow);transform:translateY(-1px)}
+.agent-card:focus-visible{border-color:var(--cyan);box-shadow:var(--cyan-glow);outline:none}
+.agent-top{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.agent-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.agent-dot.online{background:var(--green);box-shadow:0 0 8px rgba(34,197,94,.4)}
+.agent-dot.degraded{background:var(--yellow);box-shadow:0 0 8px rgba(245,158,11,.3)}
+.agent-dot.offline{background:var(--red);box-shadow:0 0 8px rgba(239,68,68,.3)}
+.agent-name{font-size:14px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-host{font-size:12px;font-family:var(--mono);color:var(--text-muted);margin-bottom:14px}
+.agent-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
+.metric{text-align:center;padding:8px 0;background:var(--bg-surface);border-radius:var(--radius-sm)}
+.metric-val{font-family:var(--mono);font-size:15px;font-weight:600}
+.metric-lbl{font-size:10px;color:var(--text-muted);margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
+.agent-footer{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.agent-tag{font-size:10px;padding:2px 8px;border-radius:var(--radius-pill);background:var(--cyan-100);color:var(--cyan);font-weight:500}
+.agent-uptime{font-size:11px;color:var(--text-muted);font-family:var(--mono);margin-left:auto}
+
+.empty-state{text-align:center;padding:80px 20px;color:var(--text-muted)}
+.empty-icon{width:48px;height:48px;margin:0 auto 16px;opacity:.25}
+.empty-state p{font-size:15px;font-weight:500;margin-bottom:4px;color:var(--text-secondary)}
+.empty-state small{font-size:12px}
+
+.modal-overlay{display:none;position:fixed;inset:0;width:100vw;height:100vh;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-lg);width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+.modal-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-header h3{font-size:16px;font-weight:600}
+.modal-close{width:28px;height:28px;border-radius:var(--radius-sm);border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.modal-close:hover{color:var(--text);background:var(--bg-hover)}
+.modal-body{padding:20px 24px}
+.form-group{margin-bottom:18px}
+.form-group:last-child{margin-bottom:0}
+.form-label{display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px}
+.form-input,.form-select{width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--text);font-family:var(--font);transition:border-color .15s,box-shadow .15s;outline:none}
+.form-input:focus,.form-select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px var(--cyan-50)}
+.form-input::placeholder{color:var(--text-muted)}
+.form-select{cursor:pointer;-webkit-appearance:none}
+.form-hint{font-size:11px;color:var(--text-muted);margin-top:5px}
+.form-error{font-size:12px;color:var(--red);margin-top:4px;display:none}
+.form-error.show{display:block}
+.form-input.error{border-color:var(--red)}
+.form-input.error:focus{box-shadow:0 0 0 3px rgba(239,68,68,.15)}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.inline-error{background:var(--red-bg);border:1px solid rgba(239,68,68,.2);color:var(--red);font-size:13px;padding:10px 14px;border-radius:var(--radius-sm);margin-bottom:16px;display:none}
+.inline-error.show{display:block}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+@media(max-width:768px){
+  .content{padding:20px 16px 40px}
+  .page-header{flex-direction:column;gap:12px}
+  .toolbar{flex-direction:column;align-items:stretch}
+  .search-box{width:100%}
+  .toolbar-sep{display:none}
+  .agent-grid{grid-template-columns:1fr}
+  .modal{width:calc(100vw - 32px);margin:16px}
+}
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-logo"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+    <div class="topbar-brand">OpenTrace<small>Observability Platform</small></div>
+  </div>
+  <div class="topbar-nav">
+    <a href="index.html">Dashboard</a>
+    <a href="agents.html" class="active" aria-current="page">Agents</a>
+    <a href="sinks.html">Sinks</a>
+  </div>
+  <div class="topbar-right">
+    <div class="live-indicator"><span class="live-dot" aria-hidden="true"></span>LIVE</div>
+    <div class="topbar-time" id="clock" aria-live="polite">--:--:--</div>
+    <button class="theme-btn" onclick="toggleTheme()" aria-label="切换主题">
+      <svg id="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+      <svg id="icon-sun" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <div class="user-menu" id="user-menu">
+      <button class="user-avatar" id="user-avatar" onclick="toggleDropdown()" aria-haspopup="true" aria-expanded="false" aria-label="用户菜单">A</button>
+      <div class="user-dropdown" id="user-dropdown" role="menu">
+        <div class="user-dropdown-hd">
+          <div class="user-dropdown-av" id="dd-av">A</div>
+          <div class="user-dropdown-info"><div class="user-dropdown-name" id="dd-name">Admin</div><div class="user-dropdown-role" id="dd-role">管理员</div></div>
+        </div>
+        <div class="user-dropdown-divider"></div>
+        <div class="user-dropdown-item danger" role="menuitem" tabindex="0" onclick="logout()" onkeydown="if(event.key==='Enter')logout()">
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          退出登录
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<main class="content">
+  <div class="page-header">
+    <div>
+      <h1>Agents</h1>
+      <p>管理所有 Agent 节点，支持分组、标签筛选与 CRUD</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal('create')" id="btn-add">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      新增 Agent
+    </button>
+  </div>
+
+  <div class="toolbar" role="search">
+    <label for="search" class="sr-only">搜索 Agent</label>
+    <input class="search-box" id="search" placeholder="搜索 Agent 名称 / 主机 IP ..." oninput="render()" autocomplete="off">
+    <div class="toolbar-sep" aria-hidden="true"></div>
+    <div id="gf" role="group" aria-label="分组筛选" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    <div class="toolbar-sep" aria-hidden="true"></div>
+    <div id="tf" role="group" aria-label="标签筛选" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>
+
+  <div id="gc" aria-live="polite"></div>
+</main>
+
+<div class="modal-overlay" id="modal-create" role="dialog" aria-modal="true" aria-labelledby="create-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="create-title">新增 Agent</h3>
+      <button class="modal-close" onclick="closeModal('create')" aria-label="关闭">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="inline-error" id="create-error"></div>
+      <div class="form-group">
+        <label class="form-label" for="inp-name">名称 *</label>
+        <input class="form-input" id="inp-name" placeholder="例如：agent-beijing-03" autocomplete="off">
+        <div class="form-error" id="err-name">请输入 Agent 名称</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="inp-host">主机 IP *</label>
+        <input class="form-input" id="inp-host" placeholder="例如：10.0.1.13" autocomplete="off">
+        <div class="form-error" id="err-host">请输入主机 IP 地址</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="inp-group">分组</label>
+        <select class="form-select" id="inp-group">
+          <option>默认分组</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="inp-tags">标签</label>
+        <input class="form-input" id="inp-tags" placeholder="逗号分隔，例如：production, cn-north" autocomplete="off">
+        <div class="form-hint">用于筛选和分组管理</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('create')">取消</button>
+      <button class="btn btn-primary" onclick="submitCreate()" id="btn-create">创建 Agent</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-delete" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <h3 id="delete-title">确认删除</h3>
+      <button class="modal-close" onclick="closeModal('delete')" aria-label="关闭">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-secondary);font-size:13px;line-height:1.6">确定要删除 <strong id="del-name" style="color:var(--text)"></strong> 吗？<br><br>此操作不可撤销，所有 Sink 关联也将被移除。</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('delete')">取消</button>
+      <button class="btn btn-danger" id="del-confirm">删除</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+if (!checkAuth()) location.href = '/login.html';
+
+var agents = [];
+var groups = [];
+var aG = null, aT = null, delId = null, lastFocusedEl = null;
+
+function fm(n) { if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return String(n); }
+function fu(s) { if(!s) return '—'; var d=Math.floor(s/86400),h=Math.floor((s%86400)/3600); return d>0?d+'d '+h+'h':h+'h'; }
+
+async function loadAgents() {
+  try {
+    agents = await api.listAgents();
+    render();
+  } catch (err) {
+    console.error('Failed to load agents:', err);
+  }
+}
+
+async function loadGroups() {
+  try {
+    groups = await api.listGroups();
+    var select = document.getElementById('inp-group');
+    select.innerHTML = '<option value="">无分组</option>' +
+      groups.map(function(g) { return '<option value="'+g.id+'">'+g.name+'</option>'; }).join('');
+  } catch (err) {
+    console.error('Failed to load groups:', err);
+  }
+}
+
+function getGroups() {
+  var g = {};
+  agents.forEach(function(x) {
+    var groupName = x.group_name || '默认分组';
+    if (!g[groupName]) g[groupName] = [];
+    g[groupName].push(x);
+  });
+  return g;
+}
+
+function getAllTags() {
+  var all = {};
+  agents.forEach(function(x) {
+    if (x.tags) {
+      x.tags.forEach(function(t) { all[t] = 1; });
+    }
+  });
+  return Object.keys(all).sort();
+}
+
+function render() {
+  var q = document.getElementById('search').value.toLowerCase();
+  var groups = getGroups();
+  var tags = getAllTags();
+
+  document.getElementById('gf').innerHTML = ['全部'].concat(Object.keys(groups)).map(function(g) {
+    var act = (g==='全部' && !aG) || aG===g;
+    return '<button class="filter-btn '+(act?'active':'')+'" onclick="setG(\''+(g==='全部'?'':g)+'\')">'+g+'</button>';
+  }).join('');
+
+  document.getElementById('tf').innerHTML = tags.map(function(t) {
+    return '<span class="tag-chip '+(aT===t?'active':'')+'" role="checkbox" aria-checked="'+(aT===t)+'" tabindex="0" onclick="setT(\''+t+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();setT(\''+t+'\')}">'+t+'</span>';
+  }).join('');
+
+  var filtered = agents;
+  if(q) filtered = filtered.filter(function(c) { return c.name.toLowerCase().indexOf(q)>=0 || c.host.indexOf(q)>=0 || (c.group_name||'').toLowerCase().indexOf(q)>=0; });
+  if(aG) filtered = filtered.filter(function(c) { return (c.group_name||'默认分组')===aG; });
+  if(aT) filtered = filtered.filter(function(c) { return c.tags && c.tags.indexOf(aT)>=0; });
+
+  var dg = {};
+  filtered.forEach(function(c) {
+    var groupName = c.group_name || '默认分组';
+    if(!dg[groupName]) dg[groupName]=[];
+    dg[groupName].push(c);
+  });
+
+  if(!Object.keys(dg).length) {
+    document.getElementById('gc').innerHTML = '<div class="empty-state"><svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/></svg><p>没有匹配的 Agent</p><small>调整搜索或筛选条件</small></div>';
+    return;
+  }
+
+  document.getElementById('gc').innerHTML = Object.keys(dg).map(function(gn) {
+    var gc = dg[gn];
+    var on = gc.filter(function(c){return c.status==='online'}).length;
+    return '<div class="group-section"><div class="group-header"><h3>'+gn+'</h3><span class="group-count">'+gc.length+' 台</span><span class="group-online">'+on+' 在线</span></div><div class="agent-grid">'+gc.map(card).join('')+'</div></div>';
+  }).join('');
+
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('zh-CN',{hour12:false});
+}
+
+function card(c) {
+  var status = c.status || 'online';
+  var cpu = c.cpu || 0;
+  var memory = c.memory || 0;
+  var rate = c.rate || 0;
+  var uptime = c.uptime || 0;
+  var tags = c.tags || [];
+
+  return '<div class="agent-card" tabindex="0" role="link" onclick="location.href=\'agent-detail.html?id='+c.id+'\'" onkeydown="if(event.key===\'Enter\')location.href=\'agent-detail.html?id='+c.id+'\'">'
+    +'<div class="agent-top"><span class="agent-dot '+status+'" aria-label="'+({online:'在线',degraded:'降级',offline:'离线'}[status])+'"></span><span class="agent-name">'+c.name+'</span></div>'
+    +'<div class="agent-host">'+c.host+'</div>'
+    +'<div class="agent-metrics"><div class="metric"><div class="metric-val">'+fm(rate)+'</div><div class="metric-lbl">req/s</div></div><div class="metric"><div class="metric-val">'+cpu+'%</div><div class="metric-lbl">CPU</div></div><div class="metric"><div class="metric-val">'+memory+'%</div><div class="metric-lbl">Memory</div></div></div>'
+    +'<div class="agent-footer">'+tags.map(function(t){return '<span class="agent-tag">'+t+'</span>'}).join('')+'<span class="agent-uptime">'+fu(uptime)+'</span></div>'
+    +'</div>';
+}
+
+function setG(g) { aG = g || null; render(); }
+function setT(t) { aT = aT===t ? null : t; render(); }
+
+function clearErrors() {
+  document.querySelectorAll('.form-error').forEach(function(el){ el.classList.remove('show'); });
+  document.querySelectorAll('.form-input.error').forEach(function(el){ el.classList.remove('error'); });
+  var ie = document.getElementById('create-error'); if(ie) ie.classList.remove('show');
+}
+
+function showFieldError(id) {
+  var input = document.getElementById(id);
+  var err = document.getElementById('err-'+id.split('-')[1]);
+  if(input) input.classList.add('error');
+  if(err) err.classList.add('show');
+}
+
+function openDelete(id, name) {
+  delId = id;
+  lastFocusedEl = document.activeElement;
+  document.getElementById('del-name').textContent = name;
+  document.getElementById('del-confirm').onclick = async function() {
+    try {
+      await api.deleteAgent(delId);
+      closeModal('delete');
+      loadAgents();
+    } catch (err) {
+      alert('删除失败: ' + err.message);
+    }
+  };
+  openModal('delete');
+}
+
+async function submitCreate() {
+  clearErrors();
+  var n = document.getElementById('inp-name').value.trim();
+  var h = document.getElementById('inp-host').value.trim();
+  var hasError = false;
+
+  if(!n) { showFieldError('inp-name'); hasError = true; }
+  if(!h) { showFieldError('inp-host'); hasError = true; }
+
+  if(hasError) {
+    var ie = document.getElementById('create-error');
+    ie.textContent = '请填写所有必填字段';
+    ie.classList.add('show');
+    if(!n) document.getElementById('inp-name').focus();
+    else document.getElementById('inp-host').focus();
+    return;
+  }
+
+  var btn = document.getElementById('btn-create');
+  btn.textContent = '创建中...'; btn.disabled = true;
+
+  try {
+    await api.createAgent({
+      name: n,
+      host: h,
+      group_id: document.getElementById('inp-group').value || null,
+      tags: document.getElementById('inp-tags').value.split(',').map(function(s){return s.trim()}).filter(Boolean)
+    });
+    closeModal('create');
+    document.getElementById('inp-name').value = '';
+    document.getElementById('inp-host').value = '';
+    document.getElementById('inp-tags').value = '';
+    btn.textContent = '创建 Agent'; btn.disabled = false;
+    loadAgents();
+  } catch (err) {
+    btn.textContent = '创建 Agent'; btn.disabled = false;
+    var ie = document.getElementById('create-error');
+    ie.textContent = '创建失败: ' + err.message;
+    ie.classList.add('show');
+  }
+}
+
+document.querySelectorAll('.modal-overlay').forEach(function(el) {
+  el.addEventListener('click', function(e) { if(e.target === el) closeModal(el.id.replace('modal-','')); });
+});
+document.addEventListener('keydown', function(e) {
+  if(e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.show').forEach(function(el) { closeModal(el.id.replace('modal-','')); });
+  }
+  var openModalEl = document.querySelector('.modal-overlay.show .modal');
+  if(openModalEl) {
+    var focusable = openModalEl.querySelectorAll('input,select,button,[tabindex]:not([tabindex="-1"])');
+    if(!focusable.length) return;
+    var first = focusable[0], last = focusable[focusable.length-1];
+    if(e.key === 'Tab') {
+      if(e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
+});
+
+initCommon();
+loadGroups();
+loadAgents();
+setInterval(loadAgents, 3000);
+</script>
+</body>
+</html>

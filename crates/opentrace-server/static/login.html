@@ -1,0 +1,116 @@
+
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenTrace — 登录</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#08080B;--bg-surface:#0C0C10;--bg-panel:#101014;--bg-elevated:#161620;--bg-hover:#1C1C28;--border:#1A1A24;--border-light:#2C2C3A;--text:#F0F0F5;--text-secondary:#9CA3AF;--text-muted:#5C6370;--cyan:#00D4FF;--cyan-50:rgba(0,212,255,.05);--cyan-100:rgba(0,212,255,.10);--cyan-glow:0 0 40px rgba(0,212,255,.15);--green:#22C55E;--green-bg:rgba(34,197,94,.10);--red:#EF4444;--red-bg:rgba(239,68,68,.10);--font:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;--radius:10px;--radius-sm:6px;--radius-lg:14px}
+html.light{--bg:#F5F5F7;--bg-surface:#FFFFFF;--bg-panel:#FFFFFF;--bg-elevated:#F0F0F2;--bg-hover:#E8E8EC;--border:#E0E0E4;--border-light:#C8C8CE;--text:#111111;--text-secondary:#6B7280;--text-muted:#9CA3AF;--cyan-50:rgba(0,140,200,.05);--cyan-100:rgba(0,140,200,.10);--cyan-glow:0 0 24px rgba(0,140,200,.10);--green:#16A34A;--green-bg:rgba(22,163,74,.08);--red:#DC2626;--red-bg:rgba(220,38,38,.08)}
+html{font-size:14px;-webkit-font-smoothing:antialiased}body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login-wrapper{width:100%;max-width:400px;padding:20px}
+.login-header{text-align:center;margin-bottom:32px}
+.login-logo{width:52px;height:52px;background:linear-gradient(135deg,var(--cyan),#0090B3);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;box-shadow:var(--cyan-glow);margin-bottom:16px}
+.login-logo svg{width:26px;height:26px;fill:white}
+.login-header h1{font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px}
+.login-header p{font-size:14px;color:var(--text-secondary)}
+.login-card{background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;position:relative;overflow:hidden;transition:all .3s}
+.login-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent)}
+.form-group{margin-bottom:18px}
+.form-label{display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px}
+.form-input{width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:14px;color:var(--text);font-family:var(--font);transition:border-color .15s,box-shadow .15s;outline:none}
+.form-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px var(--cyan-50)}
+.form-input::placeholder{color:var(--text-muted)}
+.form-hint{font-size:11px;color:var(--text-muted);margin-top:5px}
+.form-hint span{color:var(--cyan);font-family:var(--mono);font-weight:600}
+.login-btn{width:100%;padding:12px;font-size:15px;font-weight:600;background:var(--cyan);color:#000;border:none;border-radius:var(--radius-sm);cursor:pointer;transition:all .2s;font-family:var(--font);margin-top:4px}
+.login-btn:hover{background:#33DDFF;box-shadow:var(--cyan-glow)}
+.login-btn:active{transform:scale(.98)}
+.login-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.msg{font-size:13px;padding:10px 14px;border-radius:var(--radius-sm);margin-bottom:16px;display:none}
+.msg.error{background:var(--red-bg);border:1px solid rgba(239,68,68,.2);color:var(--red)}
+.msg.success{background:var(--green-bg);border:1px solid rgba(34,197,94,.2);color:var(--green)}
+.msg.show{display:block}
+.theme-btn{position:fixed;top:20px;right:20px;width:34px;height:34px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-panel);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-50)}
+.theme-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.login-footer{text-align:center;margin-top:24px;font-size:12px;color:var(--text-muted)}
+.login-footer a{color:var(--cyan);text-decoration:none}.login-footer a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()" title="切换主题">
+  <svg id="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+  <svg id="icon-sun" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+</button>
+<div class="login-wrapper">
+  <div class="login-header">
+    <div class="login-logo"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+    <h1>OpenTrace</h1>
+    <p>分布式可观测性管理平台</p>
+  </div>
+  <div class="login-card">
+    <div class="msg error" id="msg-error"></div>
+    <div class="msg success" id="msg-success"></div>
+    <div class="form-group">
+      <label class="form-label">用户名</label>
+      <input class="form-input" type="text" id="inp-user" placeholder="请输入用户名" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label class="form-label">密码</label>
+      <input class="form-input" type="password" id="inp-pass" placeholder="请输入密码" autocomplete="current-password">
+      <div class="form-hint">演示账号：<span>admin</span> / <span>admin123</span></div>
+    </div>
+    <button class="login-btn" id="btn-login">登 录</button>
+  </div>
+  <div class="login-footer"><a href="https://github.com/3Xpl0it3r/opentrace" target="_blank">OpenTrace</a> · Open Source Observability Platform</div>
+</div>
+<script src="/js/api.js"></script>
+<script>
+var T=localStorage.getItem('ot-theme')||'dark';
+function aT(){document.documentElement.className=T;document.getElementById('icon-moon').style.display=T==='dark'?'':'none';document.getElementById('icon-sun').style.display=T==='light'?'':'none'}
+function toggleTheme(){T=T==='dark'?'light':'dark';localStorage.setItem('ot-theme',T);aT()}
+aT();
+
+function showError(m){var e=document.getElementById('msg-error');e.textContent=m;e.classList.add('show');document.getElementById('msg-success').classList.remove('show')}
+function showSuccess(m){var e=document.getElementById('msg-success');e.textContent=m;e.classList.add('show');document.getElementById('msg-error').classList.remove('show')}
+function hideMsgs(){document.getElementById('msg-error').classList.remove('show');document.getElementById('msg-success').classList.remove('show')}
+
+if(localStorage.getItem('token')){window.location.href='/'}
+
+document.getElementById('btn-login').onclick=async function(){
+  var u=document.getElementById('inp-user').value.trim();
+  var p=document.getElementById('inp-pass').value.trim();
+  var btn=document.getElementById('btn-login');
+
+  hideMsgs();
+
+  if(!u||!p){showError('请输入用户名和密码');return}
+
+  btn.textContent='登录中...';
+  btn.disabled=true;
+
+  try{
+    var data=await api.login(u,p);
+    localStorage.setItem('token',data.token);
+    localStorage.setItem('user',JSON.stringify(data.user));
+    showSuccess('登录成功，正在跳转...');
+    btn.textContent='✓ 登录成功';
+    setTimeout(function(){window.location.href='/'},600);
+  }catch(err){
+    showError(err.message||'用户名或密码错误，请重试');
+    btn.textContent='登 录';
+    btn.disabled=false;
+    document.getElementById('inp-pass').value='';
+    document.getElementById('inp-pass').focus();
+  }
+};
+
+document.getElementById('inp-pass').onkeydown=function(e){if(e.key==='Enter')document.getElementById('btn-login').click()};
+document.getElementById('inp-user').onkeydown=function(e){if(e.key==='Enter')document.getElementById('inp-pass').focus()};
+</script>
+</body>
+</html>

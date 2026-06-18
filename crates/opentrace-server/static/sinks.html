@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenTrace - Sinks</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <nav class="topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+            <div class="topbar-brand">OpenTrace<small>Observability Platform</small></div>
+        </div>
+        <div class="topbar-nav">
+            <a href="/">Dashboard</a>
+            <a href="/agents.html">Agents</a>
+            <a href="/sinks.html" class="active">Sinks</a>
+        </div>
+        <div class="topbar-right">
+            <div class="live-indicator"><span class="live-dot"></span>LIVE</div>
+            <div class="topbar-time" id="clock">--:--:--</div>
+        </div>
+    </nav>
+
+    <main class="content">
+        <div class="page-header">
+            <div>
+                <h1>Sinks</h1>
+                <p>管理数据输出目标，配置 Kafka、Elasticsearch、Prometheus 等 Sink</p>
+            </div>
+            <button class="btn btn-primary" onclick="openFormModal()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                新增 Sink
+            </button>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>类型</th>
+                        <th>状态</th>
+                        <th>关联 Agents</th>
+                        <th>延迟</th>
+                        <th>吞吐量</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="sink-tbody"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- ═══ Create / Edit Modal ═══ -->
+    <div class="modal-overlay" id="modal-form">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">新增 Sink</h3>
+                <button class="modal-close" onclick="closeFormModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">名称 *</label>
+                    <input class="form-input" id="inp-name" placeholder="例如：Kafka Primary">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">类型 *</label>
+                        <select class="form-select" id="inp-type" onchange="updateConfig()">
+                            <option value="Kafka">Kafka</option>
+                            <option value="Elasticsearch">Elasticsearch</option>
+                            <option value="Prometheus">Prometheus</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">状态</label>
+                        <select class="form-select" id="inp-status">
+                            <option value="healthy">健康</option>
+                            <option value="degraded">降级</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="config-fields"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeFormModal()">取消</button>
+                <button class="btn btn-primary" onclick="submitForm()" id="submit-btn">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Delete Confirm Modal ═══ -->
+    <div class="modal-overlay" id="modal-delete">
+        <div class="modal" style="width:420px">
+            <div class="modal-header">
+                <h3>确认删除</h3>
+                <button class="modal-close" onclick="closeDelModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--text-secondary);font-size:13px;line-height:1.6">
+                    确定要删除 Sink <strong id="del-name" style="color:var(--text)"></strong> 吗？
+                    <br><br>
+                    所有关联的 Agent 将被取消绑定。
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeDelModal()">取消</button>
+                <button class="btn btn-danger" id="del-confirm">删除</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        if (!checkAuth()) location.href = '/login.html';
+
+        /* ═══ Helpers ═══ */
+        function fmtNum(n) {
+            if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+            return String(n);
+        }
+
+        function sinkIcon(t) {
+            return { Kafka: 'K', Elasticsearch: 'E', Prometheus: 'P' }[t] || '?';
+        }
+
+        function statusLabel(s) {
+            return { healthy: '健康', degraded: '降级' }[s] || s;
+        }
+
+        /* ═══ State ═══ */
+        let editTarget = null;
+        let delTargetId = null;
+        let sinksData = [];
+        let agentsData = [];
+
+        /* ═══ Load Data ═══ */
+        async function loadData() {
+            try {
+                const [sinks, agents] = await Promise.all([
+                    api.listSinks(),
+                    api.listAgents()
+                ]);
+                sinksData = sinks || [];
+                agentsData = agents || [];
+                render();
+            } catch (err) {
+                console.error('Failed to load data:', err);
+            }
+        }
+
+        async function loadSinkAgents(sinkId) {
+            try {
+                return await api.getSinkAgents(sinkId);
+            } catch (err) {
+                console.error('Failed to load sink agents:', err);
+                return [];
+            }
+        }
+
+        /* ═══ Render Table ═══ */
+        async function render() {
+            const tbody = document.getElementById('sink-tbody');
+            
+            if (sinksData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary);padding:40px">暂无 Sink</td></tr>';
+                updateClock();
+                return;
+            }
+
+            const rows = await Promise.all(sinksData.map(async (s) => {
+                const agents = await loadSinkAgents(s.id);
+                const agentCount = agents ? agents.length : 0;
+                
+                return `
+                    <tr onclick="location.href='/sink-detail.html?id=${s.id}'">
+                        <td>
+                            <div class="sink-name-cell">
+                                <div class="sink-type-icon ${s.sink_type}">${sinkIcon(s.sink_type)}</div>
+                                <div>
+                                    <div class="sink-name-text">${s.name}</div>
+                                    <div class="sink-type-label">${s.sink_type}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="mono">${s.sink_type}</span></td>
+                        <td><span class="status-pill ${s.status}"><span class="dot"></span>${statusLabel(s.status)}</span></td>
+                        <td><span class="mono">${agentCount}</span> 个 Agent</td>
+                        <td><span class="mono">${s.avg_latency || 0}ms</span></td>
+                        <td><span class="mono">${fmtNum(s.throughput || 0)}/s</span></td>
+                        <td class="actions-cell">
+                            <button class="btn-sm edit" onclick="event.stopPropagation();openEditModal('${s.id}')">编辑</button>
+                            <button class="btn-sm del" onclick="event.stopPropagation();openDelModal('${s.id}','${s.name}')">删除</button>
+                        </td>
+                    </tr>`;
+            }));
+
+            tbody.innerHTML = rows.join('');
+            updateClock();
+        }
+
+        function updateClock() {
+            document.getElementById('clock').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        }
+
+        /* ═══ Config Templates ═══ */
+        const cfgTemplates = {
+            Kafka: `<div class="form-row">
+                <div class="form-group"><label class="form-label">Brokers</label><input class="form-input" id="cfg-brokers" placeholder="kafka-01:9092, kafka-02:9092"></div>
+                <div class="form-group"><label class="form-label">Topic</label><input class="form-input" id="cfg-topic" placeholder="otel-traces"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label class="form-label">压缩</label><select class="form-select" id="cfg-compression"><option value="lz4">LZ4</option><option value="snappy">Snappy</option><option value="gzip">Gzip</option><option value="none">无</option></select></div>
+                <div class="form-group"><label class="form-label">Batch Size</label><input class="form-input" id="cfg-batch" type="number" value="500"></div>
+            </div>`,
+            Elasticsearch: `<div class="form-group"><label class="form-label">Endpoint</label><input class="form-input" id="cfg-endpoint" placeholder="https://es-cluster.internal:9200"></div>
+            <div class="form-row">
+                <div class="form-group"><label class="form-label">Index Pattern</label><input class="form-input" id="cfg-index" placeholder="otel-traces-{yyyy.MM.dd}"></div>
+                <div class="form-group"><label class="form-label">Shards</label><input class="form-input" id="cfg-shards" type="number" value="3"></div>
+            </div>`,
+            Prometheus: `<div class="form-group"><label class="form-label">Endpoint</label><input class="form-input" id="cfg-endpoint" placeholder="http://prometheus.internal:9090"></div>
+            <div class="form-row">
+                <div class="form-group"><label class="form-label">Scrape Interval</label><input class="form-input" id="cfg-scrape" placeholder="15s"></div>
+                <div class="form-group"><label class="form-label">Retention</label><input class="form-input" id="cfg-retention" placeholder="30d"></div>
+            </div>`
+        };
+
+        function updateConfig() {
+            document.getElementById('config-fields').innerHTML = cfgTemplates[document.getElementById('inp-type').value] || '';
+        }
+
+        /* ═══ Form Modal ═══ */
+        function openFormModal(sink) {
+            editTarget = sink ? sink.id : null;
+            document.getElementById('modal-title').textContent = sink ? '编辑 Sink' : '新增 Sink';
+            document.getElementById('submit-btn').textContent = sink ? '保存' : '创建';
+            document.getElementById('inp-name').value = sink ? sink.name : '';
+            if (sink) {
+                document.getElementById('inp-type').value = sink.sink_type;
+                document.getElementById('inp-status').value = sink.status;
+            }
+            updateConfig();
+            if (sink && sink.config) {
+                const c = typeof sink.config === 'string' ? JSON.parse(sink.config) : sink.config;
+                if (sink.sink_type === 'Kafka') {
+                    const be = document.getElementById('cfg-brokers'); if (be) be.value = (c.bootstrap || c.brokers || []).toString();
+                    const to = document.getElementById('cfg-topic'); if (to) to.value = c.topic || '';
+                    const cm = document.getElementById('cfg-compression'); if (cm) cm.value = c.compression || 'lz4';
+                    const ba = document.getElementById('cfg-batch'); if (ba) ba.value = c.batch_size || c.batchSize || 500;
+                } else if (sink.sink_type === 'Elasticsearch') {
+                    const ep = document.getElementById('cfg-endpoint'); if (ep) ep.value = c.url || c.endpoint || '';
+                    const ix = document.getElementById('cfg-index'); if (ix) ix.value = c.index || '';
+                    const sh = document.getElementById('cfg-shards'); if (sh) sh.value = c.shards || 3;
+                } else {
+                    const ep = document.getElementById('cfg-endpoint'); if (ep) ep.value = c.endpoint || '';
+                    const sc = document.getElementById('cfg-scrape'); if (sc) sc.value = c.scrape_interval || c.scrapeInterval || '';
+                    const rt = document.getElementById('cfg-retention'); if (rt) rt.value = c.retention || '';
+                }
+            }
+            document.getElementById('modal-form').classList.add('show');
+        }
+
+        function openEditModal(id) {
+            const sink = sinksData.find(s => s.id == id);
+            if (sink) openFormModal(sink);
+        }
+
+        function closeFormModal() {
+            document.getElementById('modal-form').classList.remove('show');
+            editTarget = null;
+        }
+
+        async function submitForm() {
+            const name = document.getElementById('inp-name').value.trim();
+            if (!name) { alert('名称为必填项'); return; }
+            const type = document.getElementById('inp-type').value;
+            const status = document.getElementById('inp-status').value;
+            let config = {};
+            if (type === 'Kafka') {
+                config = {
+                    bootstrap: (document.getElementById('cfg-brokers').value || '').split(',').map(s => s.trim()).filter(Boolean),
+                    topic: document.getElementById('cfg-topic').value,
+                    compression: document.getElementById('cfg-compression').value,
+                    batch_size: parseInt(document.getElementById('cfg-batch').value) || 500
+                };
+            } else if (type === 'Elasticsearch') {
+                config = {
+                    url: document.getElementById('cfg-endpoint').value,
+                    index: document.getElementById('cfg-index').value,
+                    shards: parseInt(document.getElementById('cfg-shards').value) || 3
+                };
+            } else {
+                config = {
+                    endpoint: document.getElementById('cfg-endpoint').value,
+                    scrape_interval: document.getElementById('cfg-scrape').value,
+                    retention: document.getElementById('cfg-retention').value
+                };
+            }
+
+            const submitBtn = document.getElementById('submit-btn');
+            setButtonLoading(submitBtn, true, editTarget ? '保存中...' : '创建中...');
+
+            try {
+                if (editTarget) {
+                    await api.updateSink(editTarget, {
+                        name,
+                        sink_type: type,
+                        status,
+                        config: JSON.stringify(config)
+                    });
+                } else {
+                    await api.createSink({
+                        name,
+                        sink_type: type,
+                        status,
+                        config: JSON.stringify(config)
+                    });
+                }
+                closeFormModal();
+                await loadData();
+            } catch (err) {
+                alert((editTarget ? '更新' : '创建') + '失败: ' + err.message);
+            } finally {
+                setButtonLoading(submitBtn, false);
+            }
+        }
+
+        /* ═══ Delete Modal ═══ */
+        function openDelModal(id, name) {
+            delTargetId = id;
+            document.getElementById('del-name').textContent = name;
+            document.getElementById('del-confirm').onclick = async () => {
+                const delBtn = document.getElementById('del-confirm');
+                setButtonLoading(delBtn, true, '删除中...');
+                try {
+                    await api.deleteSink(delTargetId);
+                    closeDelModal();
+                    await loadData();
+                } catch (err) {
+                    alert('删除失败: ' + err.message);
+                } finally {
+                    setButtonLoading(delBtn, false);
+                }
+            };
+            document.getElementById('modal-delete').classList.add('show');
+        }
+
+        function closeDelModal() {
+            document.getElementById('modal-delete').classList.remove('show');
+            delTargetId = null;
+        }
+
+        /* ═══ Global Events ═══ */
+        document.querySelectorAll('.modal-overlay').forEach(el => {
+            el.addEventListener('click', e => {
+                if (e.target === el) {
+                    el.classList.remove('show');
+                    editTarget = null;
+                    delTargetId = null;
+                }
+            });
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-overlay.show').forEach(el => el.classList.remove('show'));
+                editTarget = null;
+                delTargetId = null;
+            }
+        });
+
+        /* ═══ Init ═══ */
+        loadData();
+        setInterval(async () => {
+            await loadData();
+        }, 30000);
+    </script>
+</body>
+</html>

@@ -11,8 +11,8 @@ use axum::response::{IntoResponse, Response};
 const AUTHORIZATION_KEYWORKD: &str = "authorization";
 
 #[derive(Clone)]
-pub struct AuthState {
-    pub bearer_token: Arc<str>,
+pub(super) struct AuthState {
+    pub(super) bearer_token: Arc<str>,
 }
 
 fn write_401(error_type: &str, message: &str) -> Response {

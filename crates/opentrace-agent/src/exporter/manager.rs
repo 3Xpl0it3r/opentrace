@@ -15,12 +15,16 @@ use super::{ExporterContext, ExporterRunner, ExporterSpec, ExporterTask};
 
 pub(crate) struct ExporterManager {
     tasks: RwLock<HashMap<String, ExporterTask>>,
+    stopping: RwLock<HashMap<String, Option<String>>>,
+    stopped: RwLock<HashMap<String, Option<String>>>,
 }
 
 impl ExporterManager {
     pub(crate) fn new() -> Self {
         Self {
             tasks: RwLock::new(HashMap::default()),
+            stopping: RwLock::new(HashMap::default()),
+            stopped: RwLock::new(HashMap::default()),
         }
     }
 
@@ -34,6 +38,14 @@ impl ExporterManager {
     where
         R: ExporterRunner,
     {
+        let stopping = self.stopping.read().await;
+        if stopping.contains_key(name) {
+            return Err(AgntError::AlreadyExists(format!(
+                "{} 正在暂停，请稍后重试",
+                name
+            )));
+        }
+
         let mut tasks = self.tasks.write().await;
         if tasks.contains_key(name) {
             return Err(AgntError::AlreadyExists(format!("{} 已经启动了", name)));
@@ -56,6 +68,8 @@ impl ExporterManager {
             name.to_owned(),
             ExporterTask::new(registry, cancel, handler, sink_name),
         );
+        drop(stopping);
+        self.stopped.write().await.remove(name);
         Ok(())
     }
 
@@ -66,14 +80,28 @@ impl ExporterManager {
     }
 
     pub(crate) async fn stop(&self, name: &str, deadline: Instant) -> Result<(), AgntError> {
-        let task = self
-            .tasks
-            .write()
-            .await
-            .remove(name)
-            .ok_or_else(|| AgntError::NotFound(format!("{} has stopped", name)))?;
+        let mut stopping = self.stopping.write().await;
+        if stopping.contains_key(name) {
+            return Err(AgntError::AlreadyExists(format!("{} is stopping", name)));
+        }
+
+        let task = {
+            let mut tasks = self.tasks.write().await;
+            tasks
+                .remove(name)
+                .ok_or_else(|| AgntError::NotFound(format!("{} has stopped", name)))?
+        };
+        let sink_name = task.sink_name().map(str::to_owned);
+        stopping.insert(name.to_owned(), sink_name.clone());
+        drop(stopping);
+
         task.stop();
         Self::wait_task_until(task, deadline).await;
+        self.stopping.write().await.remove(name);
+        self.stopped
+            .write()
+            .await
+            .insert(name.to_owned(), sink_name);
         Ok(())
     }
 
@@ -90,11 +118,19 @@ impl ExporterManager {
     }
 
     pub(crate) async fn sink_is_used(&self, name: &str) -> bool {
-        self.tasks
+        let is_running = self
+            .tasks
             .read()
             .await
             .values()
-            .any(|task| task.sink_name() == Some(name))
+            .any(|task| task.sink_name() == Some(name));
+        let is_stopping = self
+            .stopping
+            .read()
+            .await
+            .values()
+            .any(|sink_name| sink_name.as_deref() == Some(name));
+        is_running || is_stopping
     }
 
     pub(crate) async fn encode_all<W: std::io::Write>(
@@ -108,6 +144,35 @@ impl ExporterManager {
             }
         }
         Ok(())
+    }
+
+    pub(crate) async fn status(&self) -> Vec<(String, &'static str, Option<String>)> {
+        let mut status: Vec<_> = self
+            .stopped
+            .read()
+            .await
+            .iter()
+            .map(|(name, sink_name)| (name.clone(), "stopped", sink_name.clone()))
+            .collect();
+
+        status.extend(
+            self.stopping
+                .read()
+                .await
+                .iter()
+                .map(|(name, sink_name)| (name.clone(), "stopping", sink_name.clone())),
+        );
+
+        status.extend(self.tasks.read().await.iter().map(|(name, task)| {
+            let state = if task.is_running() {
+                "running"
+            } else {
+                "stopped"
+            };
+            (name.clone(), state, task.sink_name().map(str::to_owned))
+        }));
+
+        status
     }
 
     async fn wait_task_until(mut task: ExporterTask, deadline: Instant) {

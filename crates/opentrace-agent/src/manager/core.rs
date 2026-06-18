@@ -126,6 +126,10 @@ impl Manager {
         self.sink_manager.list_sinks().await
     }
 
+    pub(crate) async fn collector_status(&self) -> Vec<(String, &'static str, Option<String>)> {
+        self.exporter_manager.status().await
+    }
+
     async fn sink_is_used(&self, name: &str) -> bool {
         self.exporter_manager.sink_is_used(name).await
     }

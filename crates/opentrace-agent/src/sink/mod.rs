@@ -3,9 +3,11 @@ mod cache;
 mod kafka;
 mod prometheus;
 mod manager;
+mod sse;
 
-pub(crate) use cache::{SinkCacheTask, SinkCacher};
-pub(crate) use kafka::KafkaRecord;
+pub(crate) use cache::{LocalSinkCacheTask, SinkCacheTask, SinkCacher};
+pub(crate) use kafka::{KafkaRecord, KafkaSink};
 pub use manager::SinkConfig;
 pub(crate) use manager::SinkManager;
 pub use manager::{SinkRecordReceiver, SinkRecordSender};
+pub(crate) use sse::SseRecord;

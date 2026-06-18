@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenTrace — Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <!-- Top Navigation -->
+    <nav class="topbar">
+        <div class="topbar-left">
+            <div class="topbar-logo">
+                <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+            <div class="topbar-brand">OpenTrace<small>Observability Platform</small></div>
+        </div>
+        <div class="topbar-nav">
+            <a href="/" class="active">Dashboard</a>
+            <a href="/agents.html">Agents</a>
+            <a href="/sinks.html">Sinks</a>
+        </div>
+        <div class="topbar-right">
+            <div class="live-indicator"><span class="live-dot"></span>LIVE</div>
+            <div class="topbar-time" id="clock">--:--:--</div>
+            <div class="user-menu">
+                <div class="user-avatar" id="user-avatar" onclick="toggleDropdown()" aria-expanded="false" aria-haspopup="true" tabindex="0" role="button">U</div>
+                <div class="user-dropdown" id="user-dropdown" role="menu">
+                    <div class="user-dropdown-header">
+                        <div class="user-dropdown-avatar" id="dd-av">U</div>
+                        <div class="user-dropdown-info">
+                            <div class="user-dropdown-name" id="dd-name">User</div>
+                            <div class="user-dropdown-role" id="dd-role">用户</div>
+                        </div>
+                    </div>
+                    <div class="user-dropdown-divider"></div>
+                    <div class="user-dropdown-item" onclick="toggleTheme()" role="menuitem">
+                        <svg id="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                        <svg id="icon-sun" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                        <span>切换主题</span>
+                    </div>
+                    <div class="user-dropdown-divider"></div>
+                    <div class="user-dropdown-item danger" onclick="logout()" role="menuitem">
+                        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        <span>退出登录</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="content">
+        <div class="page-header">
+            <h1>Dashboard</h1>
+            <p>实时监控所有 Agent 节点与 Sink 健康状态</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid" id="stats-grid"></div>
+
+        <!-- Chart + Alerts -->
+        <div class="row col-2-1">
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">数据吞吐量 <span class="count">req/s · 最近 3 分钟</span></div>
+                </div>
+                <div class="panel-body chart-wrap">
+                    <div class="chart-current">
+                        <div class="val" id="chart-val">—</div>
+                        <div class="lbl">requests / sec</div>
+                    </div>
+                    <canvas id="chart-canvas"></canvas>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">最近告警</div>
+                    <span class="panel-badge" id="alert-count">—</span>
+                </div>
+                <div class="panel-body">
+                    <div class="alert-list" id="alert-list">
+                        <div class="empty-state">
+                            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                            </svg>
+                            <p>暂无告警</p>
+                            <small>系统运行正常</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agents + Sinks -->
+        <div class="row col-1-1">
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Agent 状态</div>
+                    <a class="panel-action" href="/agents.html">查看全部 →</a>
+                </div>
+                <div class="panel-body">
+                    <div class="c-grid" id="agent-grid"></div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Sink 健康</div>
+                    <a class="panel-action" href="/sinks.html">查看全部 →</a>
+                </div>
+                <div class="panel-body">
+                    <div class="sink-list" id="sink-list"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        if (!checkAuth()) location.href = '/login.html';
+
+        /* ═══ Helpers ═══ */
+        function fmtNum(n) {
+            if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+            return String(n);
+        }
+
+        function fmtUptime(s) {
+            if (!s) return '—';
+            const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
+            return d > 0 ? d + 'd ' + h + 'h' : h + 'h';
+        }
+
+        function sinkIcon(t) {
+            return { Kafka: 'K', Elasticsearch: 'E', Prometheus: 'P' }[t] || '?';
+        }
+
+        function statusLabel(s) {
+            return { online: '在线', degraded: '降级', offline: '离线', healthy: '健康' }[s] || s;
+        }
+
+        /* ═══ Chart Data ═══ */
+        let throughputHistory = [];
+        const MAX_HISTORY = 60;
+
+        function addThroughputPoint(value) {
+            throughputHistory.push({ t: Date.now(), value });
+            if (throughputHistory.length > MAX_HISTORY) throughputHistory.shift();
+        }
+
+        /* ═══ Dashboard Render ═══ */
+        async function renderDashboard() {
+            try {
+                const [stats, agents, sinks] = await Promise.all([
+                    api.getStats(),
+                    api.listAgents(),
+                    api.listSinks()
+                ]);
+
+                // Stats
+                const onlineRate = stats.total_agents > 0 
+                    ? Math.round(stats.online_agents / stats.total_agents * 100) 
+                    : 0;
+                
+                const offlineAgents = stats.total_agents - stats.online_agents;
+                const totalRate = agents.reduce((sum, a) => sum + (a.rate || 0), 0);
+                
+                // Add throughput point
+                addThroughputPoint(totalRate);
+
+                document.getElementById('stats-grid').innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-label">Agent 总数</div>
+                        <div class="stat-value">${stats.total_agents}</div>
+                        <div class="stat-sub">
+                            <span class="dot" style="background:var(--green)"></span>${stats.online_agents} 在线
+                            <span class="dot" style="background:var(--red)"></span>${offlineAgents} 离线
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">在线率</div>
+                        <div class="stat-value">${onlineRate}<span class="unit">%</span></div>
+                        <div class="stat-sub">过去 24h 平均可用率 <span style="color:var(--green);font-weight:600">99.2%</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">总吞吐量</div>
+                        <div class="stat-value">${fmtNum(totalRate)}<span class="unit">/s</span></div>
+                        <div class="stat-sub">累计处理 ${fmtNum(agents.reduce((sum, a) => sum + (a.rate || 0) * (a.uptime || 0), 0))} 条</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Sink 状态</div>
+                        <div class="stat-value">${stats.total_sinks}</div>
+                        <div class="stat-sub">
+                            <span class="dot" style="background:var(--green)"></span>${stats.healthy_sinks} 健康
+                            ${stats.total_sinks - stats.healthy_sinks > 0 
+                                ? `<span class="dot" style="background:var(--yellow)"></span>${stats.total_sinks - stats.healthy_sinks} 降级` 
+                                : ''}
+                        </div>
+                    </div>
+                `;
+
+                // Agents (show first 6)
+                document.getElementById('agent-grid').innerHTML = agents.slice(0, 6).map(a => `
+                    <a class="c-card" href="/agent-detail.html?id=${a.id}">
+                        <div class="c-card-top">
+                            <span class="c-dot ${a.status}"></span>
+                            <span class="c-name">${a.name}</span>
+                        </div>
+                        <div class="c-host">${a.host}</div>
+                        <div class="c-stats">
+                            <span>↑ <span class="mono">${fmtNum(a.rate || 0)}</span>/s</span>
+                            <span>CPU <span class="mono">${a.cpu || 0}%</span></span>
+                            <span>RAM <span class="mono">${a.memory || 0}%</span></span>
+                        </div>
+                    </a>
+                `).join('') || `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                            <line x1="8" y1="21" x2="16" y2="21"/>
+                            <line x1="12" y1="17" x2="12" y2="21"/>
+                        </svg>
+                        <p>暂无 Agent</p>
+                        <small>点击"Agents"页面添加</small>
+                    </div>
+                `;
+
+                // Sinks
+                document.getElementById('sink-list').innerHTML = sinks.map(s => `
+                    <a class="sink-row" href="/sink-detail.html?id=${s.id}">
+                        <div class="sink-type-icon ${s.sink_type}">${sinkIcon(s.sink_type)}</div>
+                        <div class="sink-meta">
+                            <div class="sink-name">${s.name}</div>
+                            <div class="sink-sub">${s.sink_type}</div>
+                        </div>
+                        <span class="sink-status ${s.status}">${statusLabel(s.status)}</span>
+                    </a>
+                `).join('') || `
+                    <div class="empty-state">
+                        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        </svg>
+                        <p>暂无 Sink</p>
+                        <small>点击"Sinks"页面添加</small>
+                    </div>
+                `;
+
+                // Chart
+                drawChart();
+
+                // Chart value
+                const cur = throughputHistory.length ? throughputHistory[throughputHistory.length - 1].value : 0;
+                const prev = throughputHistory.length > 1 ? throughputHistory[throughputHistory.length - 2].value : cur;
+                const diff = cur - prev;
+                document.getElementById('chart-val').innerHTML = `${fmtNum(Math.round(cur))} <span class="change ${diff >= 0 ? 'up' : 'down'}">${diff >= 0 ? '↑' : '↓'}${Math.abs(Math.round(diff))}</span>`;
+
+            } catch (err) {
+                console.error('Failed to load dashboard:', err);
+            }
+        }
+
+        /* ═══ Canvas Chart ═══ */
+        function drawChart() {
+            const canvas = document.getElementById('chart-canvas');
+            if (!canvas) return;
+            const wrap = canvas.parentElement;
+            const W = wrap.clientWidth, H = wrap.clientHeight;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = W * dpr; canvas.height = H * dpr;
+            canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            const data = throughputHistory;
+            if (data.length < 2) {
+                ctx.clearRect(0, 0, W, H);
+                ctx.font = '12px IBM Plex Mono';
+                ctx.fillStyle = '#5C6370';
+                ctx.textAlign = 'center';
+                ctx.fillText('等待数据...', W / 2, H / 2);
+                return;
+            }
+
+            const pad = { t: 50, r: 16, b: 28, l: 52 };
+            const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+            const vals = data.map(d => d.value);
+            const max = Math.max(...vals) * 1.15;
+
+            ctx.clearRect(0, 0, W, H);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(255,255,255,.04)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.font = '10px IBM Plex Mono';
+            ctx.fillStyle = '#3C3C4A';
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.t + (ch / 4) * i;
+                ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+                ctx.fillText(fmtNum(Math.round(max - (max / 4) * i)), pad.l - 8, y + 3);
+            }
+            ctx.setLineDash([]);
+
+            // Points
+            const pts = data.map((d, i) => ({
+                x: pad.l + (cw / (data.length - 1)) * i,
+                y: pad.t + ch - (d.value / max) * ch
+            }));
+
+            // Gradient fill
+            const grad = ctx.createLinearGradient(0, pad.t, 0, H - pad.b);
+            grad.addColorStop(0, 'rgba(0,212,255,.18)');
+            grad.addColorStop(.5, 'rgba(0,212,255,.06)');
+            grad.addColorStop(1, 'rgba(0,212,255,0)');
+
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, H - pad.b);
+            pts.forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.lineTo(pts[pts.length - 1].x, H - pad.b);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Smooth line
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) {
+                const mx = (pts[i - 1].x + pts[i].x) / 2, my = (pts[i - 1].y + pts[i].y) / 2;
+                ctx.quadraticCurveTo(pts[i - 1].x, pts[i - 1].y, mx, my);
+            }
+            ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+            ctx.strokeStyle = '#00D4FF';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = 'rgba(0,212,255,.3)';
+            ctx.shadowBlur = 8;
+            ctx.stroke();
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+
+            // Last dot
+            const last = pts[pts.length - 1];
+            ctx.beginPath(); ctx.arc(last.x, last.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#00D4FF'; ctx.fill();
+            ctx.beginPath(); ctx.arc(last.x, last.y, 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#F0F0F5'; ctx.fill();
+
+            // Time labels
+            ctx.font = '10px IBM Plex Mono';
+            ctx.fillStyle = '#3C3C4A';
+            ctx.textAlign = 'center';
+            for (let i = 0; i < data.length; i += 15) {
+                const x = pad.l + (cw / (data.length - 1)) * i;
+                const t = new Date(data[i].t);
+                ctx.fillText(t.toLocaleTimeString('zh-CN', { hour12: false, minute: '2-digit', second: '2-digit' }), x, H - 6);
+            }
+        }
+
+        // Init
+        renderDashboard();
+        setInterval(renderDashboard, 3000);
+        window.addEventListener('resize', drawChart);
+    </script>
+</body>
+</html>

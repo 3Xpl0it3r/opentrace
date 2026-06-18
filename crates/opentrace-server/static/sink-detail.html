@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenTrace — Sink 详情</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+.detail-header{padding:24px 28px;margin-bottom:24px;border-bottom:1px solid var(--border)}
+.sink-type-icon{width:48px;height:48px;border-radius:var(--radius);font-size:20px}
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+.stat-card .stat-value{font-size:26px}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.agent-list{display:flex;flex-direction:column;gap:8px}
+.agent-row{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:all .15s}
+.agent-row:hover{border-color:var(--cyan);background:var(--bg-hover)}
+.agent-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.agent-dot.online{background:var(--green);box-shadow:0 0 6px rgba(34,197,94,.4)}
+.agent-dot.degraded{background:var(--yellow)}
+.agent-dot.offline{background:var(--red)}
+.agent-info{flex:1}
+.agent-name{font-size:13px;font-weight:600}
+.agent-meta{font-size:11px;color:var(--text-muted);font-family:var(--mono);margin-top:1px}
+.agent-rate{font-family:var(--mono);font-size:12px;color:var(--text-secondary);flex-shrink:0}
+</style>
+</head>
+<body>
+<nav class="topbar">
+<div class="topbar-left">
+<div class="topbar-logo"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+<div class="topbar-brand">OpenTrace<small>Observability Platform</small></div>
+</div>
+<div class="topbar-nav">
+<a href="/">Dashboard</a>
+<a href="/agents.html">Agents</a>
+<a href="/sinks.html" class="active">Sinks</a>
+<a href="/users.html">Users</a>
+</div>
+<div class="topbar-right">
+<div class="live-indicator"><span class="live-dot"></span>LIVE</div>
+<div class="topbar-time" id="clock">--:--:--</div>
+<div class="theme-btn" onclick="toggleTheme()" title="切换主题">
+<svg id="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+<svg id="icon-sun" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+</div>
+<div class="user-menu" id="user-menu">
+<div class="user-avatar" id="user-avatar" onclick="toggleDropdown()" role="button" aria-haspopup="true" aria-expanded="false">U</div>
+<div class="user-dropdown" id="user-dropdown">
+<div class="user-dropdown-header">
+<div class="user-dropdown-avatar" id="dd-av">U</div>
+<div class="user-dropdown-info">
+<div class="user-dropdown-name" id="dd-name">User</div>
+<div class="user-dropdown-role" id="dd-role">用户</div>
+</div>
+</div>
+<div class="user-dropdown-divider"></div>
+<div class="user-dropdown-item" onclick="logout()">
+<svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+退出登录
+</div>
+</div>
+</div>
+</div>
+</nav>
+<main class="content">
+<div class="breadcrumb">
+<a href="/sinks.html">Sinks</a>
+<span class="sep">/</span>
+<span id="bc-name">—</span>
+</div>
+<div id="detail-container"></div>
+</main>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+if (!checkAuth()) location.href = '/login.html';
+
+var urlParams = new URLSearchParams(window.location.search);
+var sinkId = urlParams.get('id');
+
+function fmtNum(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+    return String(n);
+}
+
+function sinkIcon(t) {
+    var map = {Kafka: 'K', Elasticsearch: 'E', Prometheus: 'P'};
+    return map[t] || '?';
+}
+
+function normalizeType(t) {
+    if (!t) return '';
+    return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+}
+
+function statusLabel(s) {
+    var map = {healthy: '健康', degraded: '降级', offline: '离线'};
+    return map[s] || s;
+}
+
+function statusClass(s) {
+    if (s === 'healthy') return 'healthy';
+    if (s === 'degraded') return 'degraded';
+    return 'degraded';
+}
+
+var configLabels = {
+    brokers: 'Brokers', topic: 'Topic', compression: '压缩',
+    batchSize: 'Batch Size', endpoint: 'Endpoint', index: 'Index',
+    shards: 'Shards', replicas: 'Replicas', scrapeInterval: 'Scrape Interval',
+    retention: 'Retention', protocol: 'Protocol', timeout: 'Timeout',
+    maxRetries: 'Max Retries', queueSize: 'Queue Size'
+};
+
+function formatConfigValue(v) {
+    if (Array.isArray(v)) return v.join(', ');
+    if (typeof v === 'object' && v !== null) return JSON.stringify(v);
+    return String(v);
+}
+
+async function loadSink() {
+    try {
+        var sink = await api.getSink(sinkId);
+        document.getElementById('bc-name').textContent = sink.name;
+        document.title = 'OpenTrace — ' + sink.name;
+
+        var type = normalizeType(sink.sink_type);
+        var cfg = {};
+        try { cfg = JSON.parse(sink.config); } catch (e) { cfg = {}; }
+        var agentIds = [];
+        try { agentIds = await api.getSinkAgents(sinkId); } catch (e) { agentIds = []; }
+        var agents = [];
+        if (agentIds.length > 0) {
+            agents = await Promise.all(agentIds.map(function(id) {
+                return api.getAgent(id).catch(function() { return null; });
+            }));
+            agents = agents.filter(function(a) { return a !== null; });
+        }
+
+        var cfgHtml = '';
+        var entries = Object.entries(cfg);
+        if (entries.length > 0) {
+            cfgHtml = entries.map(function(entry) {
+                var k = entry[0], v = entry[1];
+                var label = configLabels[k] || k;
+                return '<div class="config-item"><span class="config-key">' + label + '</span><span class="config-val">' + formatConfigValue(v) + '</span></div>';
+            }).join('');
+        } else {
+            cfgHtml = '<div style="color:var(--text-muted);font-size:13px;padding:10px 0">暂无配置信息</div>';
+        }
+
+        var agentsHtml = '';
+        if (agents.length > 0) {
+            agentsHtml = agents.map(function(a) {
+                var aStatus = a.status || 'offline';
+                return '<div class="agent-row" onclick="location.href=\'/agent-detail.html?id=' + a.id + '\'">' +
+                    '<span class="agent-dot ' + aStatus + '"></span>' +
+                    '<div class="agent-info">' +
+                    '<div class="agent-name">' + a.name + '</div>' +
+                    '<div class="agent-meta">' + (a.host || '') + '</div>' +
+                    '</div>' +
+                    '<span class="agent-rate">' + (a.rate != null ? fmtNum(a.rate) + '/s' : '—') + '</span>' +
+                    '</div>';
+            }).join('');
+        } else {
+            agentsHtml = '<div style="color:var(--text-muted);font-size:13px;padding:20px 0;text-align:center">暂无关联 Agent</div>';
+        }
+
+        var html = '<div class="detail-header">' +
+            '<div class="sink-type-icon ' + type + '">' + sinkIcon(type) + '</div>' +
+            '<div class="detail-info">' +
+            '<h1>' + sink.name + '</h1>' +
+            '<div class="detail-type">' + type + '</div>' +
+            '</div>' +
+            '<span class="status-badge ' + statusClass(sink.status) + '"><span class="dot"></span>' + statusLabel(sink.status) + '</span>' +
+            '</div>' +
+            '<div class="stat-row">' +
+            '<div class="stat-card"><div class="stat-label">延迟</div><div class="stat-value">' + (sink.avg_latency != null ? sink.avg_latency : '—') + '<span class="unit">ms</span></div><div class="stat-sub">平均写入延迟</div></div>' +
+            '<div class="stat-card"><div class="stat-label">吞吐量</div><div class="stat-value">' + (sink.throughput != null ? fmtNum(sink.throughput) : '—') + '<span class="unit">/s</span></div><div class="stat-sub">当前写入速率</div></div>' +
+            '<div class="stat-card"><div class="stat-label">关联 Agents</div><div class="stat-value">' + agents.length + '</div><div class="stat-sub">个已绑定节点</div></div>' +
+            '</div>' +
+            '<div class="detail-grid">' +
+            '<div class="panel"><div class="panel-header"><div class="panel-title">配置详情</div></div><div class="panel-body"><div class="config-grid">' + cfgHtml + '</div></div></div>' +
+            '<div class="panel"><div class="panel-header"><div class="panel-title">关联 Agents</div><span style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">' + agents.length + ' 个</span></div><div class="panel-body"><div class="agent-list">' + agentsHtml + '</div></div></div>' +
+            '</div>';
+
+        document.getElementById('detail-container').innerHTML = html;
+    } catch (err) {
+        console.error('Failed to load sink:', err);
+        document.getElementById('detail-container').innerHTML =
+            '<div class="empty-state"><p>加载失败</p><small>' + (err.message || '请检查网络连接') + '</small></div>';
+    }
+}
+
+loadSink();
+</script>
+</body>
+</html>

@@ -20,9 +20,9 @@ pub struct PrometheusSink {
 }
 
 impl PrometheusSink {
-    pub fn new(config: PrometheusConfig) -> Self {
+    pub fn new(config: PrometheusConfig) -> Result<Self, AgntError> {
         //  真正的去创建一个httpclient
-        Self { _config: config }
+        Ok(Self { _config: config })
     }
 
     pub async fn run(
@@ -52,7 +52,6 @@ impl PrometheusSink {
 
     async fn send(&mut self, record: PrometheusRecord) -> Result<(), AgntError> {
         let PrometheusRecord { body, content_type } = record;
-        println!("send record to prometheus push gateway");
         drop((body, content_type));
         Ok(())
     }
